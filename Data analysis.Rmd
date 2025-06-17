@@ -1,0 +1,3863 @@
+---
+title: "Survey Analysis"
+output: pdf_document
+date: "2024-12-05"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(GGally)
+library(tidyverse)
+library(patchwork)
+library(skimr)
+library(psych)
+```
+
+
+```{r}
+Final_Surveys <- read_excel("Raw Milk Benchmarking Surveys Final.xlsx", na= c("","NA"))
+names(Final_Surveys) <- c(
+                                                                                                                                                                                                   
+"Collection_Date","Month", "Farm_ID", "Sampling","Farm_Name","Region","Housing_Style","Stocking_Density","Bedding_Type","Bedding_Additives","Bedding_Frequency","Alleyway_Cleaning",
+
+"Number_Cows","Cows_Milk_Frequency","Robot_Milk",
+
+"Different_People_Milk","People_Milking_Shift","Employee_Training","Parttime_Milking","Retraining","Retraining_Frequency","Retraining_Type","SOP_Access",
+
+"Glove_Use","Glove_Changing","When_Glove_Changing",
+
+"Predip_Use","Predip_Type","Postdip_Type","Udder_Stimulation","Udder_Clipped_Flamed","Udder_Clipped_Flamed_frequency","Udder_Clipped_Flamed_Time_3", "Udder_Clipped_Flamed_Time",
+
+"Parlor_Type","Water_to_Clean_Milking","Cows_Present_While_Clean_Milking","Cow_Holding_Area", "Water_to_Clean_Holding","Cows_Present_While_Clean_Holding",
+
+"Teat_Scoring","Udder_Hygeine_Scoring",
+
+"Towel_Type","Detergent_Towel","Bleach_Chlorine_Towel","Machine_Dry_Towel","Cow_Per_Towel","Towel_Replacement",
+
+"Mastitic_Milking","Pounds_Vacuum","Milking_Liner_Check","Pulsation_Milking_Unit","System_Sanitize_Frequency","Employee_Timing_Assessment",
+
+"Water_Temperature","Water_Softner","Water_Sources", "Water_Purification","Water_Purification_Type",
+
+"Plate_Cooler","Sprinkler","Sprinkler_3_days",
+
+"Employee_Retention_Histogram","Employee_Retention","Performance_Bonus",
+
+"Feed_Additives","Pasture","Pasture_Time"           )
+
+```
+
+
+```{r}
+Final_Test_Results <- read_excel("finalmilkresults.xlsx", 
+    na = "#NUM!")%>%
+  separate_wider_delim(SampleID, names=c("FarmID","Sampling"),delim="-")%>%
+  mutate(FarmID = as.numeric(sub("R","",FarmID)))
+ 
+```
+ 
+```{r}
+oxidized_data <- read_excel("oxidized.xlsx", 
+    na = "#NUM!")%>%
+  separate_wider_delim(SampleID, names=c("FarmID","Sampling"),delim="-")%>%
+  mutate(FarmID = as.numeric(sub("R","",FarmID)))
+```
+ 
+```{r}
+Final_Test_Results_Oxidized = Final_Test_Results%>%
+  full_join(oxidized_data,by = c("FarmID" = "FarmID","Sampling" = "Sampling")) #%>%
+  #mutate_if(is.character, as.factor)
+```
+ 
+```{r}
+new_chem_data <- read_excel("newchemdata.xlsx", 
+    na = "#NUM!")%>%
+  separate_wider_delim(SampleID, names=c("FarmID","Sampling"),delim="-")%>%
+  mutate(FarmID = as.numeric(sub("R","",FarmID)))
+```
+ 
+```{r}
+Final_Test_Results_Oxidized_Chem = Final_Test_Results_Oxidized%>%
+  full_join(new_chem_data,by = c("FarmID" = "FarmID","Sampling" = "Sampling")) #%>%
+  #mutate_if(is.character, as.factor)
+```
+ 
+ 
+```{r}
+Final_Data = Final_Test_Results_Oxidized_Chem%>%
+  full_join(Final_Surveys,by = c("FarmID" = "Farm_ID","Sampling" = "Sampling")) #%>%
+  #mutate_if(is.character, as.factor)
+#table(Final_Data$FarmID,Final_Data$Sampling, useNA = "ifany")
+
+#Months
+Final_Data$Month <- gsub("January", "01", Final_Data$Month)
+Final_Data$Month <- gsub("February", "02", Final_Data$Month)
+Final_Data$Month <- gsub("March", "03", Final_Data$Month)
+Final_Data$Month <- gsub("April", "04", Final_Data$Month)
+Final_Data$Month <- gsub("May", "05", Final_Data$Month)
+Final_Data$Month <- gsub("June", "06", Final_Data$Month)
+Final_Data$Month <- gsub("July", "07", Final_Data$Month)
+Final_Data$Month <- gsub("August", "08", Final_Data$Month)
+Final_Data$Month <- gsub("September", "09", Final_Data$Month)
+Final_Data$Month <- gsub("October", "10", Final_Data$Month)
+Final_Data$Month <- gsub("November", "11", Final_Data$Month)
+Final_Data$Month <- gsub("December", "12", Final_Data$Month)
+
+#Housing Style
+Final_Data$Housing_Style <- gsub("tie stalls/stanchions","t-s/stan", Final_Data$Housing_Style)
+
+#Bedding Frequency
+Final_Data$Bedding_Frequency <- gsub("x/week", "", Final_Data$Bedding_Frequency)
+Final_Data$Bedding_Frequency <- gsub("1", "01", Final_Data$Bedding_Frequency)
+Final_Data$Bedding_Frequency <- gsub("2", "02", Final_Data$Bedding_Frequency)
+Final_Data$Bedding_Frequency <- gsub("3", "03", Final_Data$Bedding_Frequency)
+Final_Data$Bedding_Frequency <- gsub("4", "04", Final_Data$Bedding_Frequency)
+Final_Data$Bedding_Frequency <- gsub("5", "05", Final_Data$Bedding_Frequency)
+Final_Data$Bedding_Frequency <- gsub("6", "06", Final_Data$Bedding_Frequency)
+Final_Data$Bedding_Frequency <- gsub("7", "07", Final_Data$Bedding_Frequency)
+Final_Data$Bedding_Frequency <- gsub("0104", "14", Final_Data$Bedding_Frequency)
+
+#Bedding Type
+Final_Data$Bedding_Type <- gsub("combination", "combo", Final_Data$Bedding_Type)
+
+#Alleyway Cleaning
+Final_Data$Alleyway_Cleaning <- gsub("skid steer/tractor", "tractor", Final_Data$Alleyway_Cleaning)
+Final_Data$Alleyway_Cleaning <- gsub("automatic", "auto", Final_Data$Alleyway_Cleaning)
+
+
+#Water Sources
+#I am using this to simplify the names so that I can see it better in the box plot
+Final_Data$Water_Sources <- gsub("ground", "g", Final_Data$Water_Sources)
+Final_Data$Water_Sources <- gsub("surface", "s", Final_Data$Water_Sources)
+Final_Data$Water_Sources <- gsub("municipal", "m", Final_Data$Water_Sources)
+Final_Data$Water_Sources <- gsub("and", "+", Final_Data$Water_Sources)
+
+#Retraining Frequency
+Final_Data$Retraining_Frequency <- gsub("1", "01", Final_Data$Retraining_Frequency)
+Final_Data$Retraining_Frequency <- gsub("2", "02", Final_Data$Retraining_Frequency)
+Final_Data$Retraining_Frequency <- gsub("3", "03", Final_Data$Retraining_Frequency)
+Final_Data$Retraining_Frequency <- gsub("4", "04", Final_Data$Retraining_Frequency)
+Final_Data$Retraining_Frequency <- gsub("6", "06", Final_Data$Retraining_Frequency)
+Final_Data$Retraining_Frequency <- gsub("0102", "12", Final_Data$Retraining_Frequency)
+Final_Data$Retraining_Frequency <- gsub("0204", "24", Final_Data$Retraining_Frequency)
+Final_Data$Retraining_Frequency <- gsub("502", "52", Final_Data$Retraining_Frequency)
+Final_Data$Retraining_Frequency <- gsub("inconsistent", "inc", Final_Data$Retraining_Frequency)
+
+#Pre dip use
+Final_Data$Predip_Use <- gsub("Future Cow brush or similar", "Cow Brush", Final_Data$Predip_Use)
+
+#Predip type
+Final_Data$Predip_Type <- gsub("chlorine based", "chlorine", Final_Data$Predip_Type)
+Final_Data$Predip_Type <- gsub("chlorine dioxide based", "chlorine dioxide", Final_Data$Predip_Type)
+Final_Data$Predip_Type <- gsub("chlorohexidine", "chlorohexidine", Final_Data$Predip_Type)
+Final_Data$Predip_Type <- gsub("hydrogen peroxide based", "hydrogen peroxide", Final_Data$Predip_Type)
+Final_Data$Predip_Type <- gsub("iodine based", "iodine", Final_Data$Predip_Type)
+Final_Data$Predip_Type <- gsub("other", "other", Final_Data$Predip_Type)
+
+
+#Postdip type
+Final_Data$Postdip_Type <- gsub("chlorine dioxide based", "chlorine dioxide", Final_Data$Postdip_Type)
+Final_Data$Postdip_Type <- gsub("chlorohexidine", "chlorohexidine", Final_Data$Postdip_Type)
+Final_Data$Postdip_Type <- gsub("combination", "combination", Final_Data$Postdip_Type)
+Final_Data$Postdip_Type <- gsub("iodine based", "iodine", Final_Data$Postdip_Type)
+Final_Data$Postdip_Type <- gsub("other", "other", Final_Data$Postdip_Type)
+
+#Glove Use
+Final_Data$Glove_Use <- gsub("inconsistent glove use", "inconsistent", Final_Data$Glove_Use)
+
+#When Glove Changing
+Final_Data$When_Glove_Changing <- gsub("objective reasons", "objective", Final_Data$When_Glove_Changing)
+Final_Data$When_Glove_Changing <- gsub("subjective reasons", "subjective", Final_Data$When_Glove_Changing)
+
+#parlor Type
+Final_Data$Parlor_Type <- gsub("stanchions/tie-stalls", "stan/t-s", Final_Data$Parlor_Type)
+
+#Udder Clipped Flamed Frequency per year
+Final_Data$Udder_Clipped_Flamed_frequency <- gsub("1-2x/yr", "01-02", Final_Data$Udder_Clipped_Flamed_frequency)
+Final_Data$Udder_Clipped_Flamed_frequency <- gsub("3-4x/yr", "03-04", Final_Data$Udder_Clipped_Flamed_frequency)
+Final_Data$Udder_Clipped_Flamed_frequency <- gsub("monthly", "12", Final_Data$Udder_Clipped_Flamed_frequency)
+
+#Towel Replacement
+Final_Data$Towel_Replacement <- gsub("not on a schedule", "no schedule", Final_Data$Towel_Replacement)
+Final_Data$Towel_Replacement <- gsub("on a schedule", "schedule", Final_Data$Towel_Replacement)
+
+#Detergent Towel
+Final_Data$Detergent_Towel <- gsub("laundry service", "LS", Final_Data$Detergent_Towel)
+
+#Detergent Towel
+Final_Data$Bleach_Chlorine_Towel <- gsub("laundry service", "LS", Final_Data$Bleach_Chlorine_Towel)
+
+#Machine Dry Towel
+Final_Data$Machine_Dry_Towel <- gsub("laundry service", "LS", Final_Data$Machine_Dry_Towel)
+
+#System Sanitize Frequency
+Final_Data$System_Sanitize_Frequency <- gsub("1x/day", "1", Final_Data$System_Sanitize_Frequency)
+Final_Data$System_Sanitize_Frequency <- gsub("2x/day", "2", Final_Data$System_Sanitize_Frequency)
+Final_Data$System_Sanitize_Frequency <- gsub("3x/day", "3", Final_Data$System_Sanitize_Frequency)
+Final_Data$System_Sanitize_Frequency <- gsub("4x/day", "4", Final_Data$System_Sanitize_Frequency)
+
+
+```
+
+
+```{r}
+Final_Data<- Final_Data[!grepl("113", Final_Data$FarmID, ignore.case = TRUE), ]
+
+Final_Data <- Final_Data %>%
+#Stocking Density
+mutate(Stocking_Density = ifelse(is.na(Stocking_Density), 100, Stocking_Density)) %>%
+  
+  #Changing NA for do employees receive retraining for non robot farms (only 133) to no
+mutate(Retraining= case_when( 
+           FarmID == "133" ~ "no",
+           TRUE ~ Retraining
+         ))%>%
+  
+#Only farm 133 has both NA for SOP Access and is not a robot so I am changing SOP access to yes since the farmer would have access to his own information/SOPs
+  mutate(SOP_Access = case_when( 
+           FarmID == "133" ~ "yes",
+           TRUE ~ SOP_Access
+         ))%>%
+  
+#Bedding Frequency
+mutate(Bedding_Frequency = ifelse(is.na(Bedding_Frequency), 0, Bedding_Frequency),
+       Bedding_Frequency = ifelse(Bedding_Frequency == "< 01", 0.5, Bedding_Frequency),
+       Bedding_Frequency = as.numeric(Bedding_Frequency))%>%
+
+#Alleyway Cleaning
+mutate(Alleyway_Cleaning = ifelse(is.na(Alleyway_Cleaning ), "No Alleyway", Alleyway_Cleaning ))%>%
+  
+#Pre Dip Type
+mutate(Predip_Type = ifelse(is.na(Predip_Type), "No pre dip", Predip_Type ))%>%
+
+#Udder Clipping and Flaming Frequency (times per year)
+mutate(Udder_Clipped_Flamed_frequency = ifelse(is.na(Udder_Clipped_Flamed_frequency), "0", Udder_Clipped_Flamed_frequency ))%>%
+  
+#This code is because I was running into an issue where the yes and no's already there would change to 1's and 2's for some reason
+  
+#Cows being present while the milking area is being cleaned with water
+mutate(Cows_Present_While_Clean_Milking = as.character(Cows_Present_While_Clean_Milking),
+         Cows_Present_While_Clean_Milking = ifelse(is.na(Cows_Present_While_Clean_Milking), "no", Cows_Present_While_Clean_Milking))
+  
+#Is water used to clean the holding area
+  Final_Data <- Final_Data %>%
+mutate(Water_to_Clean_Holding = as.character(Water_to_Clean_Holding),
+       Water_to_Clean_Holding = ifelse(is.na(Water_to_Clean_Holding), "No holding area", Water_to_Clean_Holding))
+
+#Cows being present while the holding area is being cleaned with water
+Final_Data <- Final_Data %>%
+mutate(Cows_Present_While_Clean_Holding = case_when( 
+           Water_to_Clean_Holding == "no" ~ "no",
+           Water_to_Clean_Holding == "No holding area" ~ "No holding area",
+           TRUE ~ Cows_Present_While_Clean_Holding
+         ))%>%
+  
+#Changing towels that are NA to be Not laundered
+
+mutate(Detergent_Towel = ifelse(is.na(Detergent_Towel), "No Laundered Towels", Detergent_Towel))%>%
+    
+mutate(Bleach_Chlorine_Towel = ifelse(is.na(Bleach_Chlorine_Towel), "No Laundered Towels", Bleach_Chlorine_Towel))%>%
+
+mutate(Machine_Dry_Towel = ifelse(is.na(Machine_Dry_Towel), "No Laundered Towels", Machine_Dry_Towel))%>%
+
+#Changing number of cows wiped per towel to brush if cows are wiped with brush or 0 if no towel used
+  mutate(Cow_Per_Towel = ifelse(is.na(Cow_Per_Towel), 0, Cow_Per_Towel))%>%
+ 
+#Changing NAs for how often towels are replaced to No laundered Towels
+ mutate(Towel_Replacement = ifelse(is.na(Towel_Replacement), "No Laundered Towels", Towel_Replacement))%>%
+
+#Changing how often the system is sanitized NAs to 0
+ mutate(System_Sanitize_Frequency = ifelse(is.na(System_Sanitize_Frequency), 0, System_Sanitize_Frequency))%>%
+ mutate(System_Sanitize_Frequency = ifelse(System_Sanitize_Frequency == "NA (no pipeline)", NA, System_Sanitize_Frequency),
+        System_Sanitize_Frequency = as.numeric(System_Sanitize_Frequency)) %>% 
+
+#Changing type of water purification into three variables
+ mutate(Water_Purification_Type = ifelse(is.na(Water_Purification_Type), 0, Water_Purification_Type)) %>% 
+ mutate(Water_Purification_Chemical = as.integer(str_detect(Water_Purification_Type, "chemical")),
+        Water_Purification_Physical = as.integer(str_detect(Water_Purification_Type, "physical")),
+        Water_Purification_UV = as.integer(str_detect(Water_Purification_Type, "UV"))) %>% 
+ select(-Water_Purification_Type) %>% 
+  
+#Changing water source into three variables
+  mutate(Water_Sources_Ground = as.integer(str_detect(Water_Sources, "g")),
+         Water_Sources_Surface = as.integer(str_detect(Water_Sources, "s")),
+         Water_Sources_Municipal = as.integer(str_detect(Water_Sources, "m"))) %>%
+  select(-Water_Sources) %>% 
+           
+           
+
+#Changing hours per day on pasture from NA to 0
+ mutate(Pasture_Time = ifelse(is.na(Pasture_Time), 0, Pasture_Time))%>%
+
+#Changing employee retraining frequency to 0 if NA and not robot, and leaving alone if robot
+mutate(Retraining_Frequency = case_when( 
+           is.na(Retraining_Frequency)  ~ "0",
+           TRUE ~ Retraining_Frequency
+         ))%>%
+  
+#Changing are gloves changed NAs to no gloves if no gloves, robot answers are left as NA
+mutate(Glove_Changing = case_when( 
+           Glove_Use == "no" ~ "No gloves worn",
+           TRUE ~ Glove_Changing
+         ))%>%
+
+#Changing when are gloves changed, if no gloves changed to no gloves worn, if gloves are not changed then changed to gloves not changed, if robot left alone
+mutate(When_Glove_Changing = case_when( 
+           Glove_Changing == "No gloves worn" ~ "No gloves worn",
+           Glove_Changing == "no" ~ "Gloves not changed",
+           TRUE ~ When_Glove_Changing
+         ))%>%
+
+  #Changing have you ever assessed timing of employee, This is actually wrong  [if no parttime employees change to no] bc there are examples were they say no parttime employees milk cows yet they still assess timing, so need to choose a dif column, robots left alone
+
+#Only farms 177 and 178have na for no assessment of milking and are also non robot
+mutate(Employee_Timing_Assessment= case_when( 
+           FarmID == "177" ~ "no",
+           FarmID == "178" ~ "no",
+           TRUE ~ Employee_Timing_Assessment
+         ))%>%
+
+#Changing the NAs for if the sprinkler system has been on in the last three days to no's because they have no sprinkler system
+ mutate(Sprinkler_3_days = as.character(Sprinkler_3_days),
+         Sprinkler_3_days = ifelse(is.na(Sprinkler_3_days), "no", Sprinkler_3_days))%>%
+  
+#Changing predip type from NA to no pre dip for those that dont use predip
+mutate(Predip_Type = case_when( 
+           Predip_Use == "no" ~ "no pre dip",
+           TRUE ~ Predip_Type))%>%
+
+#Changing post dip for 182 from NA to no dip
+  mutate(Postdip_Type= case_when( 
+          FarmID == "182" ~ "no post dip",
+           TRUE ~ Postdip_Type
+         ))%>%
+
+#Changing plate cooler questions to make the odd ones be no + chiller
+ mutate(Plate_Cooler = case_when(
+       Plate_Cooler == "no (but have pre-chiller?)" ~ "no + chiller",
+       Plate_Cooler == "no, but have tube cooler" ~ "no + chiller",
+       Plate_Cooler == "yes (but no chiller)" ~ "yes",
+       Plate_Cooler == "yes and have a chiller" ~ "yes + chiller",
+       TRUE ~ Plate_Cooler
+       ))%>%
+  mutate(Chiller = as.integer(str_detect(Plate_Cooler, "chiller"))) %>% 
+  mutate(Plate_Cooler = as.integer(str_detect(Plate_Cooler, "yes"))) %>% 
+  
+#changing employee retention NAs to be none
+
+  mutate(Employee_Retention = as.character(Employee_Retention),
+         Employee_Retention = ifelse(is.na(Employee_Retention), "NA", Employee_Retention))%>% 
+  
+  mutate(Employee_Retention_Histogram = case_when(
+        Employee_Retention == "NA (family)" ~ "Family",
+        Employee_Retention == "NA (just farmer and one part-timer)" ~ "NA",
+        Employee_Retention == "NA" ~ "NA",
+        TRUE ~ as.character(Employee_Retention_Histogram)
+    
+  ))%>%
+  
+# changing udder clipped/flammed frequency to two variables, one for frequency and one for consistency
+  mutate(Udder_Clipped_Flamed_Consistency = ifelse(Udder_Clipped_Flamed_frequency == "inconsistent", "Inconsistent", "Consistent")) %>% 
+  mutate(Udder_Clipped_Flamed_frequency = case_when(
+    Udder_Clipped_Flamed_frequency == "01-02" ~ 1.5,
+    Udder_Clipped_Flamed_frequency == "12" ~ 12,
+    Udder_Clipped_Flamed_frequency == "0" ~ 0,
+    Udder_Clipped_Flamed_frequency == "03-04" ~ 3.5,
+    Udder_Clipped_Flamed_frequency == "inconsistent" ~ NA
+  )) %>% 
+  
+#Changing udder clipped/flamed in the past 3 months for farms that dont udder clip or flame to not clipped/flamed, changing 1s to more than three months, and 0s to less than 3 months
+  mutate(Udder_Clipped_Flamed_Time_3= case_when(
+        Udder_Clipped_Flamed_Time_3 == 1 ~ "Udders clipped/flamed more than 3 months ago",
+        Udder_Clipped_Flamed_Time_3 == 0 ~ "Udders clipped/flamed in the past 3 months or less",
+        TRUE ~ as.character(Udder_Clipped_Flamed_Time_3)
+        ))%>%
+  
+mutate(Udder_Clipped_Flamed_Time = ifelse(is.na(Udder_Clipped_Flamed_Time), "NA", Udder_Clipped_Flamed_Time))%>%
+  
+  #One farm has no retraining so the retraining type is NA, changing to none
+  mutate(Retraining_Consistency = ifelse(Retraining_Frequency == "inc", "Inconsistent", "Consistent")) %>% 
+  mutate(Retraining_Frequency = na_if(Retraining_Frequency, "inc") %>%  as.numeric()) %>% 
+  
+  
+  #Changing pounds_vacuum into two variables, one for known/unknown, one for actual value
+  mutate(Pounds_Vacuum_Known = ifelse(Pounds_Vacuum == "not sure", "Unknown", "Known"),
+         Pounds_Vacuum = na_if(Pounds_Vacuum, "not sure") %>%  as.numeric()) %>% 
+  
+  #Changing water temp into two variables
+  mutate(Water_Temperature_Known = case_when(
+    Water_Temperature == "unknown" ~ "Unknown",
+    Water_Temperature == "no pipeline" ~ "No pipeline",
+    TRUE ~ "Known")) %>% 
+  mutate(Water_Temperature = Water_Temperature %>% 
+           na_if("unknown") %>% 
+           na_if("no pipeline") %>% 
+           as.numeric()) %>% 
+
+
+  #Changing PSC NA to 25% of the LOD
+ mutate(psc = ifelse(is.na(psc), 5, psc))%>%
+  mutate(logpsc = ifelse(is.na(logpsc), 0.699, logpsc))%>%
+  
+# remove udder clip time and Employee retention
+  select(-Udder_Clipped_Flamed_Time)%>%
+
+  select(-Employee_Retention)%>%
+  select(-Employee_Retention_Histogram) %>% 
+
+# fix the class of variables
+  mutate(bab = as.numeric(bab))%>%
+
+#Changing NA's for oxidized to be not oxidized
+
+mutate(Attributes = ifelse(is.na(Attributes), "Not Oxidized", Attributes))%>%
+
+#Changing not oxidized for 123, 126, 144, 146, 165, 175, and 191 from not oxidized to missing
+  mutate(Attributes = case_when( 
+          FarmID %in% c("123", "126", "144", "146", "165", "175", "191") ~ NA_character_,
+           TRUE ~ Attributes
+         ))%>%
+
+#Changing sensory for 123, 126, 144, 146, 165, 175, and 191 from a score to missing
+  mutate(sensory = case_when( 
+          FarmID %in% c("123", "126", "144", "146", "165", "175", "191") ~ NA_real_,
+           TRUE ~ sensory
+         ))
+```
+
+
+```{r, eval=FALSE}
+## handling NA values as random forest model cannot be trained with dataset with missing values
+Final_Data %>%
+  skim() %>%
+  filter(complete_rate < 1)
+
+  
+
+
+```
+
+
+```{r, eval=FALSE}
+# check unique values for each variable
+Final_Data %>%
+  select(where(~ !is.numeric(.))) %>%  # Select only non-numeric columns
+  imap(~ {
+    cat("\nColumn:", .y, "\n")
+    print(unique(.x))
+  })
+```
+
+
+```{r}
+Final_Data_No_Robot<- Final_Data[!grepl("yes", Final_Data$Robot_Milk, ignore.case = TRUE), ]
+
+
+# check unique values for each variable
+#Final_Data_No_Robot %>%
+#  select(where(~ !is.numeric(.))) %>%  # Select only non-numeric columns
+#  imap(~ {
+#    cat("\nColumn:", .y, "\n")
+#    print(unique(.x))
+#  })
+
+ 
+```
+
+
+```{r}
+skim(Final_Data_No_Robot)
+```
+
+```{r}
+#Creating all farm data Set including robot farms
+Final_Data_All_Farm<- Final_Data%>%
+  select(-Different_People_Milk,-People_Milking_Shift, -Employee_Training, -Parttime_Milking, -Retraining, -SOP_Access, -Retraining_Frequency, -Retraining_Consistency,-Retraining_Type, -Glove_Use, -Glove_Changing, -When_Glove_Changing, -Employee_Timing_Assessment, -Performance_Bonus)
+
+# final data cleaning
+Final_Data_No_Robot = Final_Data_No_Robot %>% 
+    mutate(Pounds_Vacuum = as.numeric(Pounds_Vacuum)) %>% 
+    mutate(Water_Temperature = as.numeric(Water_Temperature))
+
+# check unique values for each variable
+#Final_Data_No_Robot %>%
+#  select(where(~ !is.numeric(.))) %>%  # Select only non-numeric columns
+#  imap(~ {
+#    cat("\nColumn:", .y, "\n")
+#    print(unique(.x))
+#  })
+
+
+#Final_Data_All_Farm %>%
+#  select(where(~ !is.numeric(.))) %>%  # Select only non-numeric columns
+#  imap(~ {
+#    cat("\nColumn:", .y, "\n")
+#    print(unique(.x))
+#  })
+ 
+```
+
+## random forest model development
+
+# data preparation
+
+```{r}
+#subset data for different outcomes
+vars_to_remove = c(colnames(Final_Test_Results), 
+                   "Farm_Name", "Region", "Robot_Milk", "Collection_Date", "Attributes", "c18_1", "munsat_db_fa")
+common_predictors = setdiff(colnames(Final_Data_No_Robot), vars_to_remove)
+common_predictors_robot = setdiff(colnames(Final_Data_All_Farm), vars_to_remove)
+
+#sensory 
+sensory_predictors = c("logscc", "bf", "lactose", "protein", "solids", "mun", "denovofa",
+                       "mixedfa", "preformfa", "logbacto", "logtlc", "n", "l", "m",
+                       "logpi", "loglpc", "logcc", "logmsc", "logtsc", "logbab",
+                       "logpsc", "sensory", "c18_1", "munsat_db_fa")
+sensory_data = Final_Data_No_Robot %>% 
+  select(all_of(c(common_predictors, sensory_predictors)))
+sensory_data_robot = Final_Data_All_Farm %>% 
+  select(all_of(c(common_predictors_robot, sensory_predictors)))
+
+
+#oxidation
+oxi_predictors = c("logscc", "bf", "lactose", "protein", "solids", "mun", "denovofa",
+                       "mixedfa", "preformfa", "logbacto", "logtlc", "n", "l", "m",
+                       "logpi", "loglpc", "logcc", "logmsc", "logtsc", "logbab",
+                       "logpsc", "Attributes", "c18_1", "munsat_db_fa")
+oxi_data = Final_Data_No_Robot %>% 
+  select(all_of(c(common_predictors, oxi_predictors)))
+oxi_data_robot = Final_Data_All_Farm %>% 
+  select(all_of(c(common_predictors_robot, oxi_predictors)))
+
+#msc
+msc_predictors = c("logbacto", "n", "l", "m", "logscc", "logtlc", "logpi", "loglpc", "logcc", "logmsc")
+msc_data = Final_Data_No_Robot %>% 
+  select(all_of(c(common_predictors, msc_predictors)))
+msc_data_robot = Final_Data_All_Farm %>% 
+  select(all_of(c(common_predictors_robot, msc_predictors)))
+
+#tsc
+tsc_predictors = c("logbacto", "n", "l", "m", "logscc", "logtlc", "logpi", "loglpc", "logcc", "logtsc")
+tsc_data = Final_Data_No_Robot %>% 
+  select(all_of(c(common_predictors, tsc_predictors)))
+tsc_data_robot = Final_Data_All_Farm %>% 
+  select(all_of(c(common_predictors_robot, tsc_predictors)))
+
+#psc
+psc_predictors = c("logbacto", "n", "l", "m", "logscc", "logtlc", "logpi", "loglpc", "logcc", "logpsc")
+psc_data = Final_Data_No_Robot %>% 
+  select(all_of(c(common_predictors, psc_predictors)))
+psc_data_robot = Final_Data_All_Farm %>% 
+  select(all_of(c(common_predictors_robot, psc_predictors)))
+
+#bab
+bab_predictors = c("logbacto", "n", "l", "m", "logscc", "logtlc", "logpi", "loglpc", "logcc", "logbab")
+bab_data = Final_Data_No_Robot %>% 
+  select(all_of(c(common_predictors, bab_predictors)))
+bab_data_robot = Final_Data_All_Farm %>% 
+  select(all_of(c(common_predictors_robot, bab_predictors)))
+
+#%neutrophils
+neutro_predictors = c("logbacto", "n", "l", "m", "logscc", "logtlc", "logpi", "loglpc", "logcc", "logpi", "loglpc", "logcc", "logmsc", "logtsc", "logbab","logpsc")
+neutro_data = Final_Data_No_Robot %>% 
+  select(all_of(c(common_predictors, neutro_predictors)))
+neutro_data_robot = Final_Data_All_Farm %>% 
+  select(all_of(c(common_predictors_robot, neutro_predictors)))
+```
+
+
+# load modeling packages
+```{r}
+library(tidymodels)
+library(vip)
+#library(learntidymodels)
+library(patchwork)
+library(ggforce)
+library(tidytext)
+library(themis)
+library(pdp)
+library(cowplot)
+library(DALEXtra)
+library(gridExtra)
+```
+
+# helper function for pdp
+```{r}
+ggplot_pdp <- function(obj, x) {
+  
+  p <- 
+    as_tibble(obj$agr_profiles) %>%
+    mutate(`_label_` = stringr::str_remove(`_label_`, "^[^_]*_")) %>%
+    ggplot(aes(`_x_`, `_yhat_`)) +
+    geom_line(data = as_tibble(obj$cp_profiles),
+              aes(x = {{ x }}, group = `_ids_`),
+              size = 0.3, alpha = 0.05, color = "gray50") +
+    theme(axis.text.x = element_text(size = 4)) + 
+    theme_bw()
+  
+  num_colors <- n_distinct(obj$agr_profiles$`_label_`)
+  
+  if (num_colors > 1) {
+    p <- p + geom_line(aes(color = `_label_`), size = 1.2, alpha = 0.8)
+  } else {
+    p <- p + geom_line(color = "midnightblue", size = 0.6, alpha = 0.8)
+  }
+  
+  p
+}
+
+
+ggplot_pdp_cat <- function(obj, x) {
+  
+  p <- 
+    as_tibble(obj$agr_profiles) %>%
+    mutate(`_label_` = stringr::str_remove(`_label_`, "^[^_]*_")) %>%
+    ggplot(aes(`_x_`, `_yhat_`)) +
+    geom_point(data = as_tibble(obj$cp_profiles),
+              aes(x = {{ x }}, group = `_ids_`),
+              size = 0.3, alpha = 0.05, color = "gray50") +
+    theme(axis.text.x = element_text(size = 4)) +
+    theme_bw()
+  
+  num_colors <- n_distinct(obj$agr_profiles$`_label_`)
+  
+  if (num_colors > 1) {
+    p <- p + geom_point(aes(color = `_label_`), size = 1.2, alpha = 0.8)
+  } else {
+    p <- p + geom_point(color = "midnightblue", size = 0.6, alpha = 0.8)
+  }
+  
+  p
+}
+```
+
+# model training and cross-validation
+
+# oxidized for non-robot farm
+```{r}
+set.seed(1)
+
+### oxi model
+oxi_data = oxi_data %>% drop_na(Attributes)
+
+oxi_recipe = recipe(Attributes ~ ., data = oxi_data) %>% 
+    step_impute_bag(all_predictors()) %>%  
+    step_zv(all_predictors()) %>% 
+    step_normalize(all_numeric_predictors()) #%>%
+    #step_dummy(all_nominal_predictors(), one_hot = FALSE)
+
+rf_spec = rand_forest(
+     trees = 1000,
+     min_n = tune(),
+     mtry = tune()) %>% 
+     set_engine("ranger") %>% 
+     set_mode("classification")
+  
+dimension = oxi_recipe %>% prep() %>% bake(NULL) %>% dim()
+nVar = dimension[2]
+  
+rf_grid = grid_max_entropy(
+    min_n(c(2L, 10L)),
+    mtry(c(1L, nVar - 1)),
+    size = 40)
+  
+oxi_wf = workflow() %>% 
+    add_recipe(oxi_recipe) %>% 
+    add_model(rf_spec)
+  
+oxi_folds = vfold_cv(oxi_data, strata = Attributes, v = 5, repeats = 3)
+  
+oxi_rs = tune_grid(
+    oxi_wf,
+    oxi_folds,
+    grid = rf_grid,
+    metrics = metric_set(roc_auc),
+    control = control_grid(verbose = FALSE)
+  )
+  
+best_rs = show_best(oxi_rs, metric = "roc_auc")
+best_rs_paras = best_rs %>% slice(1) 
+oxi_cv_rs = best_rs_paras$mean
+print(paste0("cross validation roc_auc is ", oxi_cv_rs))
+  
+choose_tree = oxi_rs %>% select_best(metric = "roc_auc")
+  
+final_model = oxi_wf %>% 
+    finalize_workflow(choose_tree) 
+
+final_fit = fit(final_model, data = oxi_data)
+
+predictions = predict(final_fit, oxi_data)
+results = bind_cols(oxi_data, predictions)
+
+
+  
+# create VIP
+imp_spec = rf_spec %>% 
+    finalize_model(select_best(oxi_rs, metric = "roc_auc")) %>% 
+    set_engine("ranger", importance = "permutation")
+
+oxi_vip_plot = workflow() %>% 
+      add_recipe(oxi_recipe) %>% 
+      add_model(imp_spec) %>% 
+      fit(oxi_data) %>% 
+      extract_fit_parsnip() %>% 
+      vip(geom = "point", num_features = 10)
+
+oxi_vip_plot
+
+# save VIP
+file_name = paste0("Figure/Oxidation/VIP/oxi_non_robot_VIP.tiff")
+  ggsave(file_name, height = 4, width = 8, units = "in", dpi = "retina")
+  
+# Create PDPs
+oxi_vip_features = oxi_vip_plot$data$Variable
+  
+# Loop through variable names and categorize based on type in the dataset
+numVar <- character()
+catVar <- character()
+
+
+for (var in oxi_vip_features) {
+    if (is.numeric(oxi_data[[var]])) {
+      numVar = c(numVar, var)
+    } else {
+      catVar = c(catVar, var)
+    }
+  }
+  
+model_explainer = explain_tidymodels(
+    final_fit,
+    data = oxi_data,
+    y = oxi_data$Attributes,
+    verbose = F)
+  
+numPlots = list()
+for (j in 1:length(numVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = numVar[j])
+    
+    pdp = ggplot_pdp(profile, !!as.name(numVar[j])) +
+      labs(x = numVar[j],
+           y = "Oxidized",
+           color = NULL)
+    
+file_name = paste0("Figure/Oxidation/PDP/oxi_non_robot_pdp_", numVar[j], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    numPlots[[j]] = pdp
+    
+  }
+  
+numPlots_grid = gridExtra::grid.arrange(grobs = numPlots, ncol = 3)
+file_name = paste0("Figure/Oxidation/PDP/NumVars_oxi_non_robot.pdf")
+  ggsave(file_name, numPlots_grid, 
+         height = 4, width = 8, units = "in", dpi = "retina")
+  
+  
+catPlots = list()
+for (k in 1:length(catVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = catVar[k])
+    
+    pdp = ggplot_pdp_cat(profile, !!as.name(catVar[k])) +
+      labs(x = catVar[k],
+           y = "Oxidized",
+           color = NULL)+
+      theme(axis.text.x = element_text(size = 4))
+    
+    file_name = paste0("Figure/Oxidation/PDP/oxi_non_robot_pdp_", catVar[k], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    catPlots[[k]] = pdp
+    
+  }
+  
+catPlots_grid = gridExtra::grid.arrange(grobs = catPlots, ncol = 3)
+file_name = paste0("Figure/Oxidation/PDP/CatVars_oxi_non_robot.pdf")
+  ggsave(file_name, catPlots_grid,
+         height = 4, width = 8, units = "in", dpi = "retina")
+
+
+```
+
+# oxidized for all farms 
+```{r}
+set.seed(1)
+
+### oxi model
+oxi_data_robot = oxi_data_robot %>% drop_na(Attributes)
+
+oxi_recipe = recipe(Attributes ~ ., data = oxi_data_robot) %>% 
+    step_impute_bag(all_predictors()) %>%  
+    step_zv(all_predictors()) %>% 
+    step_normalize(all_numeric_predictors()) #%>%
+    #step_dummy(all_nominal_predictors(), one_hot = FALSE)
+
+rf_spec = rand_forest(
+     trees = 1000,
+     min_n = tune(),
+     mtry = tune()) %>% 
+     set_engine("ranger") %>% 
+     set_mode("classification")
+  
+dimension = oxi_recipe %>% prep() %>% bake(NULL) %>% dim()
+nVar = dimension[2]
+  
+rf_grid = grid_max_entropy(
+    min_n(c(2L, 10L)),
+    mtry(c(1L, nVar - 1)),
+    size = 40)
+  
+oxi_wf = workflow() %>% 
+    add_recipe(oxi_recipe) %>% 
+    add_model(rf_spec)
+  
+oxi_folds = vfold_cv(oxi_data_robot, strata = Attributes, v = 5, repeats = 3)
+  
+oxi_rs = tune_grid(
+    oxi_wf,
+    oxi_folds,
+    grid = rf_grid,
+    metrics = metric_set(roc_auc),
+    control = control_grid(verbose = FALSE)
+  )
+  
+best_rs = show_best(oxi_rs, metric = "roc_auc")
+best_rs_paras = best_rs %>% slice(1) 
+oxi_robot_cv_rs = best_rs_paras$mean
+print(paste0("cross validation roc_auc is ", oxi_robot_cv_rs))
+  
+choose_tree = oxi_rs %>% select_best(metric = "roc_auc")
+  
+final_model = oxi_wf %>% 
+    finalize_workflow(choose_tree) 
+
+final_fit = fit(final_model, data = oxi_data_robot)
+
+predictions = predict(final_fit, oxi_data_robot)
+results = bind_cols(oxi_data_robot, predictions)
+
+  
+# create VIP
+imp_spec = rf_spec %>% 
+    finalize_model(select_best(oxi_rs, metric = "roc_auc")) %>% 
+    set_engine("ranger", importance = "permutation")
+
+oxi_vip_plot_robot = workflow() %>% 
+      add_recipe(oxi_recipe) %>% 
+      add_model(imp_spec) %>% 
+      fit(oxi_data_robot) %>% 
+      extract_fit_parsnip() %>% 
+      vip(geom = "point", num_features = 10)
+
+oxi_vip_plot_robot
+
+# save VIP
+file_name = paste0("Figure/Oxidation/VIP/oxi_all_farm_VIP.tiff")
+  ggsave(file_name, height = 4, width = 8, units = "in", dpi = "retina")
+  
+# Create PDPs
+oxi_vip_features_robot = oxi_vip_plot_robot$data$Variable
+  
+# Loop through variable names and categorize based on type in the dataset
+numVar <- character()
+catVar <- character()
+
+
+for (var in oxi_vip_features_robot) {
+    if (is.numeric(oxi_data_robot[[var]])) {
+      numVar = c(numVar, var)
+    } else {
+      catVar = c(catVar, var)
+    }
+  }
+  
+model_explainer = explain_tidymodels(
+    final_fit,
+    data = oxi_data_robot,
+    y = oxi_data_robot$Attributes,
+    verbose = F)
+  
+numPlots = list()
+for (j in 1:length(numVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = numVar[j])
+    
+    pdp = ggplot_pdp(profile, !!as.name(numVar[j])) +
+      labs(x = numVar[j],
+           y = "Oxidized",
+           color = NULL)
+    
+file_name = paste0("Figure/Oxidation/PDP/oxi_all_farm_pdp_", numVar[j], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    numPlots[[j]] = pdp
+    
+  }
+  
+numPlots_grid = gridExtra::grid.arrange(grobs = numPlots, ncol = 3)
+file_name = paste0("Figure/Oxidation/PDP/NumVars_oxi_all_farm.pdf")
+  ggsave(file_name, numPlots_grid, 
+         height = 4, width = 8, units = "in", dpi = "retina")
+  
+  
+catPlots = list()
+for (k in 1:length(catVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = catVar[k])
+    
+    pdp = ggplot_pdp_cat(profile, !!as.name(catVar[k])) +
+      labs(x = catVar[k],
+           y = "Oxidized",
+           color = NULL)+
+      theme(axis.text.x = element_text(size = 4))
+    
+    file_name = paste0("Figure/Oxidation/PDP/oxi_all_farm_pdp_", catVar[k], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    catPlots[[k]] = pdp
+    
+  }
+  
+catPlots_grid = gridExtra::grid.arrange(grobs = catPlots, ncol = 3)
+file_name = paste0("Figure/Oxidation/PDP/CatVars_oxi_all_farm.pdf")
+  ggsave(file_name, catPlots_grid,
+         height = 4, width = 8, units = "in", dpi = "retina")
+
+
+```
+
+
+# sensory for non-robot farms
+```{r}
+set.seed(1)
+
+### sensory model
+sensory_data = sensory_data %>% drop_na(sensory)
+
+# create data preprocessing procedures
+sensory_recipe = recipe(sensory ~ ., data = sensory_data) %>% 
+    step_impute_bag(all_predictors()) %>% # impute for missing data
+    step_zv(all_predictors()) %>%  # apply non-zero variance filter
+    step_normalize(all_numeric_predictors()) #%>%  # normalize numerical variables
+    #step_dummy(all_nominal_predictors(), one_hot = FALSE)
+
+# set up hyperparameter space
+rf_spec = rand_forest(
+     trees = 1000,
+     min_n = tune(),
+     mtry = tune()) %>% 
+     set_engine("ranger") %>% 
+     set_mode("regression")
+  
+dimension = sensory_recipe %>% prep() %>% bake(NULL) %>% dim()
+nVar = dimension[2]
+  
+# set up hyperparameter tuning
+rf_grid = grid_max_entropy(
+    min_n(c(2L, 10L)),
+    mtry(c(1L, nVar - 1)),
+    size = 40)
+  
+sensory_wf = workflow() %>% 
+    add_recipe(sensory_recipe) %>% 
+    add_model(rf_spec)
+  
+# cross validation
+sensory_folds = vfold_cv(sensory_data, strata = sensory, v = 5, repeats = 3)
+  
+# set up tuning grid
+sensory_rs = tune_grid(
+    sensory_wf,
+    sensory_folds,
+    grid = rf_grid,
+    metrics = metric_set(rsq),
+    control = control_grid(verbose = FALSE)
+  )
+  
+best_rs = show_best(sensory_rs, metric = "rsq")
+best_rs_paras = best_rs %>% slice(1) 
+sensory_cv_rs = best_rs_paras$mean
+print(paste0("cross validation rsq is ", sensory_cv_rs))
+  
+choose_tree = sensory_rs %>% select_best(metric = "rsq")
+  
+final_model = sensory_wf %>% 
+    finalize_workflow(choose_tree) 
+
+final_fit = fit(final_model, data = sensory_data)
+predictions = predict(final_fit, sensory_data)
+results = bind_cols(sensory_data, predictions)
+model_rsq = rsq(results, truth = sensory, estimate = .pred)
+print(paste0("rsq is ", model_rsq$.estimate))
+sensory_final_rs = model_rsq
+  
+# create VIP
+imp_spec = rf_spec %>% 
+    finalize_model(select_best(sensory_rs, metric = "rsq")) %>% 
+    set_engine("ranger", importance = "permutation")
+
+sensory_vip_plot = workflow() %>% 
+      add_recipe(sensory_recipe) %>% 
+      add_model(imp_spec) %>% 
+      fit(sensory_data) %>% 
+      extract_fit_parsnip() %>% 
+      vip(geom = "point", num_features = 10)
+
+sensory_vip_plot
+
+# save VIP
+file_name = paste0("Figure/Sensory/VIP/sensory_non_robot_VIP.tiff")
+  ggsave(file_name, height = 4, width = 8, units = "in", dpi = "retina")
+  
+# Create PDPs
+sensory_vip_features = sensory_vip_plot$data$Variable
+  
+# Loop through variable names and categorize based on type in the dataset
+numVar <- character()
+catVar <- character()
+
+
+for (var in sensory_vip_features) {
+    if (is.numeric(sensory_data[[var]])) {
+      numVar = c(numVar, var)
+    } else {
+      catVar = c(catVar, var)
+    }
+  }
+  
+model_explainer = explain_tidymodels(
+    final_fit,
+    data = sensory_data,
+    y = sensory_data$sensory,
+    verbose = F)
+  
+numPlots = list()
+for (j in 1:length(numVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = numVar[j])
+    
+    pdp = ggplot_pdp(profile, !!as.name(numVar[j])) +
+      labs(x = numVar[j],
+           y = "Sensory",
+           color = NULL)
+    
+file_name = paste0("Figure/Sensory/PDP/sensory_non_robot_pdp_", numVar[j], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    numPlots[[j]] = pdp
+    
+  }
+  
+numPlots_grid = gridExtra::grid.arrange(grobs = numPlots, ncol = 3)
+file_name = paste0("Figure/Sensory/PDP/NumVars_sensory_non_robot_.pdf")
+  ggsave(file_name, numPlots_grid, 
+         height = 4, width = 8, units = "in", dpi = "retina")
+  
+  
+catPlots = list()
+for (k in 1:length(catVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = catVar[k])
+    
+    pdp = ggplot_pdp_cat(profile, !!as.name(catVar[k])) +
+      labs(x = catVar[k],
+           y = "Sensory",
+           color = NULL)+
+      theme(axis.text.x = element_text(size = 4))
+    
+    file_name = paste0("Figure/Sensory/PDP/sensory_non_robot_pdp_", catVar[k], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    catPlots[[k]] = pdp
+    
+  }
+  
+catPlots_grid = gridExtra::grid.arrange(grobs = catPlots, ncol = 3)
+file_name = paste0("Figure/Sensory/PDP/CatVars_sensory_non_robot.pdf")
+  ggsave(file_name, catPlots_grid,
+         height = 4, width = 8, units = "in", dpi = "retina")
+
+
+```
+
+# sensory for all farms
+```{r}
+set.seed(1)
+
+### sensory model for all farms
+sensory_data_robot = sensory_data_robot %>% drop_na(sensory)
+
+sensory_recipe = recipe(sensory ~ ., data = sensory_data_robot) %>% 
+    step_impute_bag(all_predictors()) %>%  
+    step_zv(all_predictors()) %>% 
+    step_normalize(all_numeric_predictors()) #%>%
+    #step_dummy(all_nominal_predictors(), one_hot = FALSE)
+
+rf_spec = rand_forest(
+     trees = 1000,
+     min_n = tune(),
+     mtry = tune()) %>% 
+     set_engine("ranger") %>% 
+     set_mode("regression")
+  
+dimension = sensory_recipe %>% prep() %>% bake(NULL) %>% dim()
+nVar = dimension[2]
+  
+rf_grid = grid_max_entropy(
+    min_n(c(2L, 10L)),
+    mtry(c(1L, nVar - 1)),
+    size = 40)
+  
+sensory_wf = workflow() %>% 
+    add_recipe(sensory_recipe) %>% 
+    add_model(rf_spec)
+  
+sensory_folds = vfold_cv(sensory_data_robot, strata = sensory, v = 5, repeats = 3)
+  
+sensory_rs = tune_grid(
+    sensory_wf,
+    sensory_folds,
+    grid = rf_grid,
+    metrics = metric_set(rsq),
+    control = control_grid(verbose = FALSE)
+  )
+  
+best_rs = show_best(sensory_rs, metric = "rsq")
+best_rs_paras = best_rs %>% slice(1) 
+sensory_robot_cv_rs = best_rs_paras$mean
+print(paste0("cross validation rsq is ", sensory_robot_cv_rs))
+  
+choose_tree = sensory_rs %>% select_best(metric = "rsq")
+  
+final_model = sensory_wf %>% 
+    finalize_workflow(choose_tree) 
+
+final_fit = fit(final_model, data = sensory_data_robot)
+predictions = predict(final_fit, sensory_data_robot)
+results = bind_cols(sensory_data_robot, predictions)
+model_rsq = rsq(results, truth = sensory, estimate = .pred)
+print(paste0("rsq is ", model_rsq$.estimate))
+sensory_robot_final_rs = model_rsq
+  
+# create VIP
+imp_spec = rf_spec %>% 
+    finalize_model(select_best(sensory_rs, metric = "rsq")) %>% 
+    set_engine("ranger", importance = "permutation")
+
+sensory_robot_vip_plot = workflow() %>% 
+      add_recipe(sensory_recipe) %>% 
+      add_model(imp_spec) %>% 
+      fit(sensory_data_robot) %>% 
+      extract_fit_parsnip() %>% 
+      vip(geom = "point", num_features = 10)
+
+sensory_robot_vip_plot
+
+# save VIP
+file_name = paste0("Figure/Sensory/VIP/sensory_all_farm_VIP.tiff")
+  ggsave(file_name, height = 4, width = 8, units = "in", dpi = "retina")
+  
+# Create PDPs
+sensory_robot_vip_features = sensory_robot_vip_plot$data$Variable
+  
+# Loop through variable names and categorize based on type in the dataset
+numVar <- character()
+catVar <- character()
+
+
+for (var in sensory_robot_vip_features) {
+    if (is.numeric(sensory_data_robot[[var]])) {
+      numVar = c(numVar, var)
+    } else {
+      catVar = c(catVar, var)
+    }
+  }
+  
+model_explainer = explain_tidymodels(
+    final_fit,
+    data = sensory_data_robot,
+    y = sensory_data_robot$sensory,
+    verbose = F)
+  
+numPlots = list()
+for (j in 1:length(numVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = numVar[j])
+    
+    pdp = ggplot_pdp(profile, !!as.name(numVar[j])) +
+      labs(x = numVar[j],
+           y = "Sensory",
+           color = NULL)
+    
+file_name = paste0("Figure/Sensory/PDP/sensory_all_farm_pdp_", numVar[j], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    numPlots[[j]] = pdp
+    
+  }
+  
+numPlots_grid = gridExtra::grid.arrange(grobs = numPlots, ncol = 3)
+file_name = paste0("Figure/Sensory/PDP/NumVars_sensory_all_farm.pdf")
+  ggsave(file_name, numPlots_grid, 
+         height = 4, width = 8, units = "in", dpi = "retina")
+  
+  
+catPlots = list()
+for (k in 1:length(catVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = catVar[k])
+    
+    pdp = ggplot_pdp_cat(profile, !!as.name(catVar[k])) +
+      labs(x = catVar[k],
+           y = "Sensory",
+           color = NULL)+
+      theme(axis.text.x = element_text(size = 4))
+    
+    file_name = paste0("Figure/Sensory/PDP/sensory_all_farm_pdp_", catVar[k], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    catPlots[[k]] = pdp
+    
+  }
+  
+catPlots_grid = gridExtra::grid.arrange(grobs = catPlots, ncol = 3)
+file_name = paste0("Figure/Sensory/PDP/CatVars_sensory_all_farm.pdf")
+  ggsave(file_name, catPlots_grid,
+         height = 4, width = 8, units = "in", dpi = "retina")
+```
+
+
+# msc for non-robot farms
+```{r}
+set.seed(1)
+# msc model
+msc_data = msc_data %>% drop_na(logmsc)
+
+msc_recipe = recipe(logmsc ~ ., data = msc_data) %>% 
+    step_impute_bag(all_predictors()) %>%  
+    step_zv(all_predictors()) %>% 
+    step_normalize(all_numeric_predictors()) #%>%
+    #step_dummy(all_nominal_predictors(), one_hot = FALSE)
+
+rf_spec = rand_forest(
+     trees = 1000,
+     min_n = tune(),
+     mtry = tune()) %>% 
+     set_engine("ranger") %>% 
+     set_mode("regression")
+  
+dimension = msc_recipe %>% prep() %>% bake(NULL) %>% dim()
+nVar = dimension[2]
+  
+rf_grid = grid_max_entropy(
+    min_n(c(2L, 10L)),
+    mtry(c(1L, nVar - 1)),
+    size = 40)
+  
+msc_wf = workflow() %>% 
+    add_recipe(msc_recipe) %>% 
+    add_model(rf_spec)
+  
+msc_folds = vfold_cv(msc_data, strata = logmsc, v = 5, repeats = 3)
+  
+msc_rs = tune_grid(
+    msc_wf,
+    msc_folds,
+    grid = rf_grid,
+    metrics = metric_set(rsq),
+    control = control_grid(verbose = FALSE)
+  )
+  
+best_rs = show_best(msc_rs, metric = "rsq")
+best_rs_paras = best_rs %>% slice(1) 
+msc_cv_rs = best_rs_paras$mean
+print(paste0("cross validation rsq is ", msc_cv_rs))
+  
+choose_tree = msc_rs %>% select_best(metric = "rsq")
+  
+final_model = msc_wf %>% 
+    finalize_workflow(choose_tree) 
+
+final_fit = fit(final_model, data = msc_data)
+predictions = predict(final_fit, msc_data)
+results = bind_cols(msc_data, predictions)
+model_rsq = rsq(results, truth = logmsc, estimate = .pred)
+print(paste0("rsq is ", model_rsq$.estimate))
+msc_final_rs = model_rsq
+  
+# create VIP
+imp_spec = rf_spec %>% 
+    finalize_model(select_best(msc_rs, metric = "rsq")) %>% 
+    set_engine("ranger", importance = "permutation")
+
+msc_vip_plot = workflow() %>% 
+      add_recipe(msc_recipe) %>% 
+      add_model(imp_spec) %>% 
+      fit(msc_data) %>% 
+      extract_fit_parsnip() %>% 
+      vip(geom = "point", num_features = 10)
+
+msc_vip_plot
+
+# save VIP
+file_name = paste0("Figure/MSC/VIP/msc_non_robot_VIP.tiff")
+  ggsave(file_name, height = 4, width = 8, units = "in", dpi = "retina")
+  
+# Create PDPs
+msc_vip_features = msc_vip_plot$data$Variable
+  
+# Loop through variable names and categorize based on type in the dataset
+numVar <- character()
+catVar <- character()
+
+
+for (var in msc_vip_features) {
+    if (is.numeric(msc_data[[var]])) {
+      numVar = c(numVar, var)
+    } else {
+      catVar = c(catVar, var)
+    }
+  }
+  
+model_explainer = explain_tidymodels(
+    final_fit,
+    data = msc_data,
+    y = msc_data$logmsc,
+    verbose = F)
+  
+numPlots = list()
+for (j in 1:length(numVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = numVar[j])
+    
+    pdp = ggplot_pdp(profile, !!as.name(numVar[j])) +
+      labs(x = numVar[j],
+           y = "logMSC",
+           color = NULL)
+    
+file_name = paste0("Figure/MSC/PDP/msc_non_robot_pdp_", numVar[j], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    numPlots[[j]] = pdp
+    
+  }
+  
+numPlots_grid = gridExtra::grid.arrange(grobs = numPlots, ncol = 3)
+file_name = paste0("Figure/MSC/PDP/NumVars_msc_non_robot.pdf")
+  ggsave(file_name, numPlots_grid, 
+         height = 4, width = 8, units = "in", dpi = "retina")
+  
+  
+catPlots = list()
+for (k in 1:length(catVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = catVar[k])
+    
+    pdp = ggplot_pdp_cat(profile, !!as.name(catVar[k])) +
+      labs(x = catVar[k],
+           y = "logMSC",
+           color = NULL)+
+      theme(axis.text.x = element_text(size = 4))
+    
+    file_name = paste0("Figure/MSC/PDP/msc_non_robot_pdp_", catVar[k], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    catPlots[[k]] = pdp
+    
+  }
+  
+catPlots_grid = gridExtra::grid.arrange(grobs = catPlots, ncol = 3)
+file_name = paste0("Figure/MSC/PDP/CatVars_msc_non_robot.pdf")
+  ggsave(file_name, catPlots_grid,
+         height = 4, width = 8, units = "in", dpi = "retina")
+```
+
+# msc for all farms
+```{r}
+set.seed(1)
+
+# msc model
+msc_data_robot = msc_data_robot %>% drop_na(logmsc)
+
+msc_recipe = recipe(logmsc ~ ., data = msc_data_robot) %>% 
+    step_impute_bag(all_predictors()) %>%  
+    step_zv(all_predictors()) %>% 
+    step_normalize(all_numeric_predictors()) #%>%
+    #step_dummy(all_nominal_predictors(), one_hot = FALSE)
+
+rf_spec = rand_forest(
+     trees = 1000,
+     min_n = tune(),
+     mtry = tune()) %>% 
+     set_engine("ranger") %>% 
+     set_mode("regression")
+  
+dimension = msc_recipe %>% prep() %>% bake(NULL) %>% dim()
+nVar = dimension[2]
+  
+rf_grid = grid_max_entropy(
+    min_n(c(2L, 10L)),
+    mtry(c(1L, nVar - 1)),
+    size = 40)
+  
+msc_wf = workflow() %>% 
+    add_recipe(msc_recipe) %>% 
+    add_model(rf_spec)
+  
+msc_folds = vfold_cv(msc_data_robot, strata = logmsc, v = 5, repeats = 3)
+  
+msc_rs = tune_grid(
+    msc_wf,
+    msc_folds,
+    grid = rf_grid,
+    metrics = metric_set(rsq),
+    control = control_grid(verbose = FALSE)
+  )
+  
+best_rs = show_best(msc_rs, metric = "rsq")
+best_rs_paras = best_rs %>% slice(1) 
+msc_robot_cv_rs = best_rs_paras$mean
+print(paste0("cross validation rsq is ", msc_robot_cv_rs))
+  
+choose_tree = msc_rs %>% select_best(metric = "rsq")
+  
+final_model = msc_wf %>% 
+    finalize_workflow(choose_tree) 
+
+final_fit = fit(final_model, data = msc_data_robot)
+predictions = predict(final_fit, msc_data_robot)
+results = bind_cols(msc_data_robot, predictions)
+model_rsq = rsq(results, truth = logmsc, estimate = .pred)
+print(paste0("rsq is ", model_rsq$.estimate))
+msc_final_rs_robot = model_rsq
+  
+# create VIP
+imp_spec = rf_spec %>% 
+    finalize_model(select_best(msc_rs, metric = "rsq")) %>% 
+    set_engine("ranger", importance = "permutation")
+
+msc_vip_plot_robot = workflow() %>% 
+      add_recipe(msc_recipe) %>% 
+      add_model(imp_spec) %>% 
+      fit(msc_data_robot) %>% 
+      extract_fit_parsnip() %>% 
+      vip(geom = "point", num_features = 10)
+
+msc_vip_plot_robot
+
+# save VIP
+file_name = paste0("Figure/MSC/VIP/msc_all_farm_VIP.tiff")
+  ggsave(file_name, height = 4, width = 8, units = "in", dpi = "retina")
+  
+# Create PDPs
+msc_vip_features_robot = msc_vip_plot_robot$data$Variable
+  
+# Loop through variable names and categorize based on type in the dataset
+numVar <- character()
+catVar <- character()
+
+
+for (var in msc_vip_features_robot) {
+    if (is.numeric(msc_data_robot[[var]])) {
+      numVar = c(numVar, var)
+    } else {
+      catVar = c(catVar, var)
+    }
+  }
+  
+model_explainer = explain_tidymodels(
+    final_fit,
+    data = msc_data_robot,
+    y = msc_data_robot$logmsc,
+    verbose = F)
+  
+numPlots = list()
+for (j in 1:length(numVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = numVar[j])
+    
+    pdp = ggplot_pdp(profile, !!as.name(numVar[j])) +
+      labs(x = numVar[j],
+           y = "logMSC",
+           color = NULL)
+    
+file_name = paste0("Figure/MSC/PDP/msc_all_farm_pdp_", numVar[j], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    numPlots[[j]] = pdp
+    
+  }
+  
+numPlots_grid = gridExtra::grid.arrange(grobs = numPlots, ncol = 3)
+file_name = paste0("Figure/MSC/PDP/NumVars_msc_all_farm.pdf")
+  ggsave(file_name, numPlots_grid, 
+         height = 4, width = 8, units = "in", dpi = "retina")
+  
+  
+catPlots = list()
+for (k in 1:length(catVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = catVar[k])
+    
+    pdp = ggplot_pdp_cat(profile, !!as.name(catVar[k])) +
+      labs(x = catVar[k],
+           y = "logMSC",
+           color = NULL)+
+      theme(axis.text.x = element_text(size = 4))
+    
+    file_name = paste0("Figure/MSC/PDP/msc_all_farm_pdp_", catVar[k], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    catPlots[[k]] = pdp
+    
+  }
+  
+catPlots_grid = gridExtra::grid.arrange(grobs = catPlots, ncol = 3)
+file_name = paste0("Figure/MSC/PDP/CatVars_msc_all_farm.pdf")
+  ggsave(file_name, catPlots_grid,
+         height = 4, width = 8, units = "in", dpi = "retina")
+```
+
+# tsc for non-robot farms
+```{r}
+set.seed(1)
+
+# tsc model
+tsc_data = tsc_data %>% drop_na(logtsc)
+
+tsc_recipe = recipe(logtsc ~ ., data = tsc_data) %>% 
+    step_impute_bag(all_predictors()) %>%  
+    step_zv(all_predictors()) %>% 
+    step_normalize(all_numeric_predictors()) #%>%
+    #step_dummy(all_nominal_predictors(), one_hot = FALSE)
+
+rf_spec = rand_forest(
+     trees = 1000,
+     min_n = tune(),
+     mtry = tune()) %>% 
+     set_engine("ranger") %>% 
+     set_mode("regression")
+  
+dimension = tsc_recipe %>% prep() %>% bake(NULL) %>% dim()
+nVar = dimension[2]
+  
+rf_grid = grid_max_entropy(
+    min_n(c(2L, 10L)),
+    mtry(c(1L, nVar - 1)),
+    size = 40)
+  
+tsc_wf = workflow() %>% 
+    add_recipe(tsc_recipe) %>% 
+    add_model(rf_spec)
+  
+tsc_folds = vfold_cv(tsc_data, strata = logtsc, v = 5, repeats = 3)
+  
+tsc_rs = tune_grid(
+    tsc_wf,
+    tsc_folds,
+    grid = rf_grid,
+    metrics = metric_set(rsq),
+    control = control_grid(verbose = FALSE)
+  )
+  
+best_rs = show_best(tsc_rs, metric = "rsq")
+best_rs_paras = best_rs %>% slice(1) 
+tsc_cv_rs = best_rs_paras$mean
+print(paste0("cross validation rsq is ", tsc_cv_rs))
+  
+choose_tree = tsc_rs %>% select_best(metric = "rsq")
+  
+final_model = tsc_wf %>% 
+    finalize_workflow(choose_tree) 
+
+final_fit = fit(final_model, data = tsc_data)
+predictions = predict(final_fit, tsc_data)
+results = bind_cols(tsc_data, predictions)
+model_rsq = rsq(results, truth = logtsc, estimate = .pred)
+print(paste0("rsq is ", model_rsq$.estimate))
+tsc_final_rs = model_rsq
+  
+# create VIP
+imp_spec = rf_spec %>% 
+    finalize_model(select_best(tsc_rs, metric = "rsq")) %>% 
+    set_engine("ranger", importance = "permutation")
+
+tsc_vip_plot = workflow() %>% 
+      add_recipe(tsc_recipe) %>% 
+      add_model(imp_spec) %>% 
+      fit(tsc_data) %>% 
+      extract_fit_parsnip() %>% 
+      vip(geom = "point", num_features = 10)
+
+tsc_vip_plot
+
+# save VIP
+file_name = paste0("Figure/TSC/VIP/tsc_non_robot_VIP.tiff")
+  ggsave(file_name, height = 4, width = 8, units = "in", dpi = "retina")
+  
+# Create PDPs
+tsc_vip_features = tsc_vip_plot$data$Variable
+  
+# Loop through variable names and categorize based on type in the dataset
+numVar <- character()
+catVar <- character()
+
+
+for (var in tsc_vip_features) {
+    if (is.numeric(tsc_data[[var]])) {
+      numVar = c(numVar, var)
+    } else {
+      catVar = c(catVar, var)
+    }
+  }
+  
+model_explainer = explain_tidymodels(
+    final_fit,
+    data = tsc_data,
+    y = tsc_data$logtsc,
+    verbose = F)
+  
+numPlots = list()
+for (j in 1:length(numVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = numVar[j])
+    
+    pdp = ggplot_pdp(profile, !!as.name(numVar[j])) +
+      labs(x = numVar[j],
+           y = "logtsc",
+           color = NULL)
+    
+file_name = paste0("Figure/TSC/PDP/tsc_non_robot_pdp_", numVar[j], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    numPlots[[j]] = pdp
+    
+  }
+  
+numPlots_grid = gridExtra::grid.arrange(grobs = numPlots, ncol = 3)
+file_name = paste0("Figure/TSC/PDP/NumVars_tsc_non_robot.pdf")
+  ggsave(file_name, numPlots_grid, 
+         height = 4, width = 8, units = "in", dpi = "retina")
+  
+  
+catPlots = list()
+for (k in 1:length(catVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = catVar[k])
+    
+    pdp = ggplot_pdp_cat(profile, !!as.name(catVar[k])) +
+      labs(x = catVar[k],
+           y = "logtsc",
+           color = NULL)+
+      theme(axis.text.x = element_text(size = 4))
+    
+    file_name = paste0("Figure/TSC/PDP/tsc_non_robot_pdp_", catVar[k], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    catPlots[[k]] = pdp
+    
+  }
+  
+catPlots_grid = gridExtra::grid.arrange(grobs = catPlots, ncol = 3)
+file_name = paste0("Figure/TSC/PDP/CatVars_tsc_non_robot.pdf")
+  ggsave(file_name, catPlots_grid,
+         height = 4, width = 8, units = "in", dpi = "retina")
+```
+
+# tsc for all farms
+```{r}
+set.seed(1)
+
+# tsc model
+tsc_data_robot = tsc_data_robot %>% drop_na(logtsc)
+
+tsc_recipe = recipe(logtsc ~ ., data = tsc_data_robot) %>% 
+    step_impute_bag(all_predictors()) %>%  
+    step_zv(all_predictors()) %>% 
+    step_normalize(all_numeric_predictors()) #%>%
+    #step_dummy(all_nominal_predictors(), one_hot = FALSE)
+
+rf_spec = rand_forest(
+     trees = 1000,
+     min_n = tune(),
+     mtry = tune()) %>% 
+     set_engine("ranger") %>% 
+     set_mode("regression")
+  
+dimension = tsc_recipe %>% prep() %>% bake(NULL) %>% dim()
+nVar = dimension[2]
+  
+rf_grid = grid_max_entropy(
+    min_n(c(2L, 10L)),
+    mtry(c(1L, nVar - 1)),
+    size = 40)
+  
+tsc_wf = workflow() %>% 
+    add_recipe(tsc_recipe) %>% 
+    add_model(rf_spec)
+  
+tsc_folds = vfold_cv(tsc_data_robot, strata = logtsc, v = 5, repeats = 3)
+  
+tsc_rs = tune_grid(
+    tsc_wf,
+    tsc_folds,
+    grid = rf_grid,
+    metrics = metric_set(rsq),
+    control = control_grid(verbose = FALSE)
+  )
+  
+best_rs = show_best(tsc_rs, metric = "rsq")
+best_rs_paras = best_rs %>% slice(1) 
+tsc_robot_cv_rs = best_rs_paras$mean
+print(paste0("cross validation rsq is ", tsc_robot_cv_rs))
+  
+choose_tree = tsc_rs %>% select_best(metric = "rsq")
+  
+final_model = tsc_wf %>% 
+    finalize_workflow(choose_tree) 
+
+final_fit = fit(final_model, data = tsc_data_robot)
+predictions = predict(final_fit, tsc_data_robot)
+results = bind_cols(tsc_data_robot, predictions)
+model_rsq = rsq(results, truth = logtsc, estimate = .pred)
+print(paste0("rsq is ", model_rsq$.estimate))
+tsc_final_rs_robot = model_rsq
+  
+# create VIP
+imp_spec = rf_spec %>% 
+    finalize_model(select_best(tsc_rs, metric = "rsq")) %>% 
+    set_engine("ranger", importance = "permutation")
+
+tsc_vip_plot_robot = workflow() %>% 
+      add_recipe(tsc_recipe) %>% 
+      add_model(imp_spec) %>% 
+      fit(tsc_data_robot) %>% 
+      extract_fit_parsnip() %>% 
+      vip(geom = "point", num_features = 10)
+
+tsc_vip_plot_robot
+
+# save VIP
+file_name = paste0("Figure/TSC/VIP/tsc_all_farm_VIP.tiff")
+  ggsave(file_name, height = 4, width = 8, units = "in", dpi = "retina")
+  
+# Create PDPs
+tsc_vip_features_robot = tsc_vip_plot_robot$data$Variable
+  
+# Loop through variable names and categorize based on type in the dataset
+numVar <- character()
+catVar <- character()
+
+
+for (var in tsc_vip_features_robot) {
+    if (is.numeric(tsc_data_robot[[var]])) {
+      numVar = c(numVar, var)
+    } else {
+      catVar = c(catVar, var)
+    }
+  }
+  
+model_explainer = explain_tidymodels(
+    final_fit,
+    data = tsc_data_robot,
+    y = tsc_data_robot$logtsc,
+    verbose = F)
+  
+numPlots = list()
+for (j in 1:length(numVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = numVar[j])
+    
+    pdp = ggplot_pdp(profile, !!as.name(numVar[j])) +
+      labs(x = numVar[j],
+           y = "logTSC",
+           color = NULL)
+    
+file_name = paste0("Figure/TSC/PDP/tsc_all_farm_pdp_", numVar[j], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    numPlots[[j]] = pdp
+    
+  }
+  
+numPlots_grid = gridExtra::grid.arrange(grobs = numPlots, ncol = 3)
+file_name = paste0("Figure/TSC/PDP/NumVars_tsc_all_farm.pdf")
+  ggsave(file_name, numPlots_grid, 
+         height = 4, width = 8, units = "in", dpi = "retina")
+  
+  
+catPlots = list()
+for (k in 1:length(catVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = catVar[k])
+    
+    pdp = ggplot_pdp_cat(profile, !!as.name(catVar[k])) +
+      labs(x = catVar[k],
+           y = "logTSC",
+           color = NULL)+
+      theme(axis.text.x = element_text(size = 4))
+    
+    file_name = paste0("Figure/TSC/PDP/tsc_all_farm_pdp_", catVar[k], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    catPlots[[k]] = pdp
+    
+  }
+  
+catPlots_grid = gridExtra::grid.arrange(grobs = catPlots, ncol = 3)
+file_name = paste0("Figure/TSC/PDP/CatVars_tsc_all_farm.pdf")
+  ggsave(file_name, catPlots_grid,
+         height = 4, width = 8, units = "in", dpi = "retina")
+```
+
+# psc for non-robot farms
+```{r}
+set.seed(1)
+
+# psc model
+psc_data = psc_data %>% drop_na(logpsc)
+
+psc_recipe = recipe(logpsc ~ ., data = psc_data) %>% 
+    step_impute_bag(all_predictors()) %>%  
+    step_zv(all_predictors()) %>% 
+    step_normalize(all_numeric_predictors()) #%>%
+    #step_dummy(all_nominal_predictors(), one_hot = FALSE)
+
+rf_spec = rand_forest(
+     trees = 1000,
+     min_n = tune(),
+     mtry = tune()) %>% 
+     set_engine("ranger") %>% 
+     set_mode("regression")
+  
+dimension = psc_recipe %>% prep() %>% bake(NULL) %>% dim()
+nVar = dimension[2]
+  
+rf_grid = grid_max_entropy(
+    min_n(c(2L, 10L)),
+    mtry(c(1L, nVar - 1)),
+    size = 40)
+  
+psc_wf = workflow() %>% 
+    add_recipe(psc_recipe) %>% 
+    add_model(rf_spec)
+  
+psc_folds = vfold_cv(psc_data, strata = logpsc, v = 5, repeats = 3)
+  
+psc_rs = tune_grid(
+    psc_wf,
+    psc_folds,
+    grid = rf_grid,
+    metrics = metric_set(rsq),
+    control = control_grid(verbose = FALSE)
+  )
+  
+best_rs = show_best(psc_rs, metric = "rsq")
+best_rs_paras = best_rs %>% slice(1) 
+psc_cv_rs = best_rs_paras$mean
+print(paste0("cross validation rsq is ", psc_cv_rs))
+  
+choose_tree = psc_rs %>% select_best(metric = "rsq")
+  
+final_model = psc_wf %>% 
+    finalize_workflow(choose_tree) 
+
+final_fit = fit(final_model, data = psc_data)
+predictions = predict(final_fit, psc_data)
+results = bind_cols(psc_data, predictions)
+model_rsq = rsq(results, truth = logpsc, estimate = .pred)
+print(paste0("rsq is ", model_rsq$.estimate))
+psc_final_rs = model_rsq
+  
+# create VIP
+imp_spec = rf_spec %>% 
+    finalize_model(select_best(psc_rs, metric = "rsq")) %>% 
+    set_engine("ranger", importance = "permutation")
+
+psc_vip_plot = workflow() %>% 
+      add_recipe(psc_recipe) %>% 
+      add_model(imp_spec) %>% 
+      fit(psc_data) %>% 
+      extract_fit_parsnip() %>% 
+      vip(geom = "point", num_features = 10)
+
+psc_vip_plot
+
+# save VIP
+file_name = paste0("Figure/PSC/VIP/psc_non_robot_VIP.tiff")
+  ggsave(file_name, height = 4, width = 8, units = "in", dpi = "retina")
+  
+# Create PDPs
+psc_vip_features = psc_vip_plot$data$Variable
+  
+# Loop through variable names and categorize based on type in the dataset
+numVar <- character()
+catVar <- character()
+
+
+for (var in psc_vip_features) {
+    if (is.numeric(psc_data[[var]])) {
+      numVar = c(numVar, var)
+    } else {
+      catVar = c(catVar, var)
+    }
+  }
+  
+model_explainer = explain_tidymodels(
+    final_fit,
+    data = psc_data,
+    y = psc_data$logpsc,
+    verbose = F)
+  
+numPlots = list()
+for (j in 1:length(numVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = numVar[j])
+    
+    pdp = ggplot_pdp(profile, !!as.name(numVar[j])) +
+      labs(x = numVar[j],
+           y = "logpsc",
+           color = NULL)
+    
+file_name = paste0("Figure/PSC/PDP/psc_non_robot_pdp_", numVar[j], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    numPlots[[j]] = pdp
+    
+  }
+  
+numPlots_grid = gridExtra::grid.arrange(grobs = numPlots, ncol = 3)
+file_name = paste0("Figure/PSC/PDP/NumVars_psc_non_robot.pdf")
+  ggsave(file_name, numPlots_grid, 
+         height = 4, width = 8, units = "in", dpi = "retina")
+  
+  
+catPlots = list()
+for (k in 1:length(catVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = catVar[k])
+    
+    pdp = ggplot_pdp_cat(profile, !!as.name(catVar[k])) +
+      labs(x = catVar[k],
+           y = "logpsc",
+           color = NULL)+
+      theme(axis.text.x = element_text(size = 4))
+    
+    file_name = paste0("Figure/PSC/PDP/psc_non_robot_pdp_", catVar[k], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    catPlots[[k]] = pdp
+    
+  }
+  
+catPlots_grid = gridExtra::grid.arrange(grobs = catPlots, ncol = 3)
+file_name = paste0("Figure/PSC/PDP/CatVars_psc_non_robot.pdf")
+  ggsave(file_name, catPlots_grid,
+         height = 4, width = 8, units = "in", dpi = "retina")
+```
+
+# psc for all farms
+```{r}
+set.seed(1)
+
+# psc model
+psc_data_robot = psc_data_robot %>% drop_na(logpsc)
+
+psc_recipe = recipe(logpsc ~ ., data = psc_data_robot) %>% 
+    step_impute_bag(all_predictors()) %>%  
+    step_zv(all_predictors()) %>% 
+    step_normalize(all_numeric_predictors()) #%>%
+    #step_dummy(all_nominal_predictors(), one_hot = FALSE)
+
+rf_spec = rand_forest(
+     trees = 1000,
+     min_n = tune(),
+     mtry = tune()) %>% 
+     set_engine("ranger") %>% 
+     set_mode("regression")
+  
+dimension = psc_recipe %>% prep() %>% bake(NULL) %>% dim()
+nVar = dimension[2]
+  
+rf_grid = grid_max_entropy(
+    min_n(c(2L, 10L)),
+    mtry(c(1L, nVar - 1)),
+    size = 40)
+  
+psc_wf = workflow() %>% 
+    add_recipe(psc_recipe) %>% 
+    add_model(rf_spec)
+  
+psc_folds = vfold_cv(psc_data_robot, strata = logpsc, v = 5, repeats = 3)
+  
+psc_rs = tune_grid(
+    psc_wf,
+    psc_folds,
+    grid = rf_grid,
+    metrics = metric_set(rsq),
+    control = control_grid(verbose = FALSE)
+  )
+  
+best_rs = show_best(psc_rs, metric = "rsq")
+best_rs_paras = best_rs %>% slice(1) 
+psc_robot_cv_rs = best_rs_paras$mean
+print(paste0("cross validation rsq is ", psc_robot_cv_rs))
+  
+choose_tree = psc_rs %>% select_best(metric = "rsq")
+  
+final_model = psc_wf %>% 
+    finalize_workflow(choose_tree) 
+
+final_fit = fit(final_model, data = psc_data_robot)
+predictions = predict(final_fit, psc_data_robot)
+results = bind_cols(psc_data_robot, predictions)
+model_rsq = rsq(results, truth = logpsc, estimate = .pred)
+print(paste0("rsq is ", model_rsq$.estimate))
+psc_final_rs_robot = model_rsq
+  
+# create VIP
+imp_spec = rf_spec %>% 
+    finalize_model(select_best(psc_rs, metric = "rsq")) %>% 
+    set_engine("ranger", importance = "permutation")
+
+psc_vip_plot_robot = workflow() %>% 
+      add_recipe(psc_recipe) %>% 
+      add_model(imp_spec) %>% 
+      fit(psc_data_robot) %>% 
+      extract_fit_parsnip() %>% 
+      vip(geom = "point", num_features = 10)
+
+psc_vip_plot_robot
+
+# save VIP
+file_name = paste0("Figure/PSC/VIP/psc_all_farm_VIP.tiff")
+  ggsave(file_name, height = 4, width = 8, units = "in", dpi = "retina")
+  
+# Create PDPs
+psc_vip_features_robot = psc_vip_plot_robot$data$Variable
+  
+# Loop through variable names and categorize based on type in the dataset
+numVar <- character()
+catVar <- character()
+
+
+for (var in psc_vip_features_robot) {
+    if (is.numeric(psc_data_robot[[var]])) {
+      numVar = c(numVar, var)
+    } else {
+      catVar = c(catVar, var)
+    }
+  }
+  
+model_explainer = explain_tidymodels(
+    final_fit,
+    data = psc_data_robot,
+    y = psc_data_robot$logpsc,
+    verbose = F)
+  
+numPlots = list()
+for (j in 1:length(numVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = numVar[j])
+    
+    pdp = ggplot_pdp(profile, !!as.name(numVar[j])) +
+      labs(x = numVar[j],
+           y = "logPSC",
+           color = NULL)
+    
+file_name = paste0("Figure/PSC/PDP/psc_all_farm_pdp_", numVar[j], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    numPlots[[j]] = pdp
+    
+  }
+  
+numPlots_grid = gridExtra::grid.arrange(grobs = numPlots, ncol = 3)
+file_name = paste0("Figure/PSC/PDP/NumVars_psc_all_farm.pdf")
+  ggsave(file_name, numPlots_grid, 
+         height = 4, width = 8, units = "in", dpi = "retina")
+  
+  
+catPlots = list()
+for (k in 1:length(catVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = catVar[k])
+    
+    pdp = ggplot_pdp_cat(profile, !!as.name(catVar[k])) +
+      labs(x = catVar[k],
+           y = "logPSC",
+           color = NULL)+
+      theme(axis.text.x = element_text(size = 4))
+    
+    file_name = paste0("Figure/PSC/PDP/psc_all_farm_pdp_", catVar[k], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    catPlots[[k]] = pdp
+    
+  }
+  
+catPlots_grid = gridExtra::grid.arrange(grobs = catPlots, ncol = 3)
+file_name = paste0("Figure/PSC/PDP/CatVars_psc_all_farm.pdf")
+  ggsave(file_name, catPlots_grid,
+         height = 4, width = 8, units = "in", dpi = "retina")
+```
+
+# bab for non-robot farms
+```{r}
+set.seed(1)
+# bab model
+bab_data = bab_data %>% drop_na(logbab)
+
+bab_recipe = recipe(logbab ~ ., data = bab_data) %>% 
+    step_impute_bag(all_predictors()) %>%  
+    step_zv(all_predictors()) %>% 
+    step_normalize(all_numeric_predictors()) #%>%
+    #step_dummy(all_nominal_predictors(), one_hot = FALSE)
+
+rf_spec = rand_forest(
+     trees = 1000,
+     min_n = tune(),
+     mtry = tune()) %>% 
+     set_engine("ranger") %>% 
+     set_mode("regression")
+  
+dimension = bab_recipe %>% prep() %>% bake(NULL) %>% dim()
+nVar = dimension[2]
+  
+rf_grid = grid_max_entropy(
+    min_n(c(2L, 10L)),
+    mtry(c(1L, nVar - 1)),
+    size = 40)
+  
+bab_wf = workflow() %>% 
+    add_recipe(bab_recipe) %>% 
+    add_model(rf_spec)
+  
+bab_folds = vfold_cv(bab_data, strata = logbab, v = 5, repeats = 3)
+  
+bab_rs = tune_grid(
+    bab_wf,
+    bab_folds,
+    grid = rf_grid,
+    metrics = metric_set(rsq),
+    control = control_grid(verbose = FALSE)
+  )
+  
+best_rs = show_best(bab_rs, metric = "rsq")
+best_rs_paras = best_rs %>% slice(1) 
+bab_cv_rs = best_rs_paras$mean
+print(paste0("cross validation rsq is ", bab_cv_rs))
+  
+choose_tree = bab_rs %>% select_best(metric = "rsq")
+  
+final_model = bab_wf %>% 
+    finalize_workflow(choose_tree) 
+
+final_fit = fit(final_model, data = bab_data)
+predictions = predict(final_fit, bab_data)
+results = bind_cols(bab_data, predictions)
+model_rsq = rsq(results, truth = logbab, estimate = .pred)
+print(paste0("rsq is ", model_rsq$.estimate))
+bab_final_rs = model_rsq
+  
+# create VIP
+imp_spec = rf_spec %>% 
+    finalize_model(select_best(bab_rs, metric = "rsq")) %>% 
+    set_engine("ranger", importance = "permutation")
+
+bab_vip_plot = workflow() %>% 
+      add_recipe(bab_recipe) %>% 
+      add_model(imp_spec) %>% 
+      fit(bab_data) %>% 
+      extract_fit_parsnip() %>% 
+      vip(geom = "point", num_features = 10)
+
+bab_vip_plot
+
+# save VIP
+file_name = paste0("Figure/BAB/VIP/bab_non_robot_VIP.tiff")
+  ggsave(file_name, height = 4, width = 8, units = "in", dpi = "retina")
+  
+# Create PDPs
+bab_vip_features = bab_vip_plot$data$Variable
+  
+# Loop through variable names and categorize based on type in the dataset
+numVar <- character()
+catVar <- character()
+
+
+for (var in bab_vip_features) {
+    if (is.numeric(bab_data[[var]])) {
+      numVar = c(numVar, var)
+    } else {
+      catVar = c(catVar, var)
+    }
+  }
+  
+model_explainer = explain_tidymodels(
+    final_fit,
+    data = bab_data,
+    y = bab_data$logbab,
+    verbose = F)
+  
+numPlots = list()
+for (j in 1:length(numVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = numVar[j])
+    
+    pdp = ggplot_pdp(profile, !!as.name(numVar[j])) +
+      labs(x = numVar[j],
+           y = "logbab",
+           color = NULL)
+    
+file_name = paste0("Figure/BAB/PDP/bab_non_robot_pdp_", numVar[j], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    numPlots[[j]] = pdp
+    
+  }
+  
+numPlots_grid = gridExtra::grid.arrange(grobs = numPlots, ncol = 3)
+file_name = paste0("Figure/BAB/PDP/NumVars_bab_non_robot.pdf")
+  ggsave(file_name, numPlots_grid, 
+         height = 4, width = 8, units = "in", dpi = "retina")
+  
+  
+catPlots = list()
+for (k in 1:length(catVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = catVar[k])
+    
+    pdp = ggplot_pdp_cat(profile, !!as.name(catVar[k])) +
+      labs(x = catVar[k],
+           y = "logbab",
+           color = NULL)+
+      theme(axis.text.x = element_text(size = 4))
+    
+    file_name = paste0("Figure/BAB/PDP/bab_non_robot_pdp_", catVar[k], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    catPlots[[k]] = pdp
+    
+  }
+  
+catPlots_grid = gridExtra::grid.arrange(grobs = catPlots, ncol = 3)
+file_name = paste0("Figure/BAB/PDP/CatVars_bab_non_robot.pdf")
+  ggsave(file_name, catPlots_grid,
+         height = 4, width = 8, units = "in", dpi = "retina")
+```
+
+# bab for all farms
+```{r}
+set.seed(1)
+
+# bab model
+bab_data_robot = bab_data_robot %>% drop_na(logbab)
+
+bab_recipe = recipe(logbab ~ ., data = bab_data_robot) %>% 
+    step_impute_bag(all_predictors()) %>%  
+    step_zv(all_predictors()) %>% 
+    step_normalize(all_numeric_predictors()) #%>%
+    #step_dummy(all_nominal_predictors(), one_hot = FALSE)
+
+rf_spec = rand_forest(
+     trees = 1000,
+     min_n = tune(),
+     mtry = tune()) %>% 
+     set_engine("ranger") %>% 
+     set_mode("regression")
+  
+dimension = bab_recipe %>% prep() %>% bake(NULL) %>% dim()
+nVar = dimension[2]
+  
+rf_grid = grid_max_entropy(
+    min_n(c(2L, 10L)),
+    mtry(c(1L, nVar - 1)),
+    size = 40)
+  
+bab_wf = workflow() %>% 
+    add_recipe(bab_recipe) %>% 
+    add_model(rf_spec)
+  
+bab_folds = vfold_cv(bab_data_robot, strata = logbab, v = 5, repeats = 3)
+  
+bab_rs = tune_grid(
+    bab_wf,
+    bab_folds,
+    grid = rf_grid,
+    metrics = metric_set(rsq),
+    control = control_grid(verbose = FALSE)
+  )
+  
+best_rs = show_best(bab_rs, metric = "rsq")
+best_rs_paras = best_rs %>% slice(1) 
+bab_robot_cv_rs = best_rs_paras$mean
+print(paste0("cross validation rsq is ", bab_robot_cv_rs))
+  
+choose_tree = bab_rs %>% select_best(metric = "rsq")
+  
+final_model = bab_wf %>% 
+    finalize_workflow(choose_tree) 
+
+final_fit = fit(final_model, data = bab_data_robot)
+predictions = predict(final_fit, bab_data_robot)
+results = bind_cols(bab_data_robot, predictions)
+model_rsq = rsq(results, truth = logbab, estimate = .pred)
+print(paste0("rsq is ", model_rsq$.estimate))
+bab_final_rs_robot = model_rsq
+  
+# create VIP
+imp_spec = rf_spec %>% 
+    finalize_model(select_best(bab_rs, metric = "rsq")) %>% 
+    set_engine("ranger", importance = "permutation")
+
+bab_vip_plot_robot = workflow() %>% 
+      add_recipe(bab_recipe) %>% 
+      add_model(imp_spec) %>% 
+      fit(bab_data_robot) %>% 
+      extract_fit_parsnip() %>% 
+      vip(geom = "point", num_features = 10)
+
+bab_vip_plot_robot
+
+# save VIP
+file_name = paste0("Figure/BAB/VIP/bab_all_farm_VIP.tiff")
+  ggsave(file_name, height = 4, width = 8, units = "in", dpi = "retina")
+  
+# Create PDPs
+bab_vip_features_robot = bab_vip_plot_robot$data$Variable
+  
+# Loop through variable names and categorize based on type in the dataset
+numVar <- character()
+catVar <- character()
+
+
+for (var in bab_vip_features_robot) {
+    if (is.numeric(bab_data_robot[[var]])) {
+      numVar = c(numVar, var)
+    } else {
+      catVar = c(catVar, var)
+    }
+  }
+  
+model_explainer = explain_tidymodels(
+    final_fit,
+    data = bab_data_robot,
+    y = bab_data_robot$logbab,
+    verbose = F)
+  
+numPlots = list()
+for (j in 1:length(numVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = numVar[j])
+    
+    pdp = ggplot_pdp(profile, !!as.name(numVar[j])) +
+      labs(x = numVar[j],
+           y = "logbab",
+           color = NULL)
+    
+file_name = paste0("Figure/BAB/PDP/bab_all_farm_pdp_", numVar[j], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    numPlots[[j]] = pdp
+    
+  }
+  
+numPlots_grid = gridExtra::grid.arrange(grobs = numPlots, ncol = 3)
+file_name = paste0("Figure/BAB/PDP/NumVars_bab_all_farm.pdf")
+  ggsave(file_name, numPlots_grid, 
+         height = 4, width = 8, units = "in", dpi = "retina")
+  
+  
+catPlots = list()
+for (k in 1:length(catVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = catVar[k])
+    
+    pdp = ggplot_pdp_cat(profile, !!as.name(catVar[k])) +
+      labs(x = catVar[k],
+           y = "logbab",
+           color = NULL)+
+      theme(axis.text.x = element_text(size = 4))
+    
+    file_name = paste0("Figure/BAB/PDP/bab_all_farm_pdp_", catVar[k], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    catPlots[[k]] = pdp
+    
+  }
+  
+catPlots_grid = gridExtra::grid.arrange(grobs = catPlots, ncol = 3)
+file_name = paste0("Figure/BAB/PDP/CatVars_bab_all_farm.pdf")
+  ggsave(file_name, catPlots_grid,
+         height = 4, width = 8, units = "in", dpi = "retina")
+```
+
+# Neutro for non-robot farms
+```{r}
+set.seed(1)
+
+# neutro model
+neutro_data = neutro_data %>% drop_na(n)
+
+neutro_recipe = recipe(n ~ ., data = neutro_data) %>% 
+    step_impute_bag(all_predictors()) %>%  
+    step_zv(all_predictors()) %>% 
+    step_normalize(all_numeric_predictors()) #%>%
+    #step_dummy(all_nominal_predictors(), one_hot = FALSE)
+
+rf_spec = rand_forest(
+     trees = 1000,
+     min_n = tune(),
+     mtry = tune()) %>% 
+     set_engine("ranger") %>% 
+     set_mode("regression")
+  
+dimension = neutro_recipe %>% prep() %>% bake(NULL) %>% dim()
+nVar = dimension[2]
+  
+rf_grid = grid_max_entropy(
+    min_n(c(2L, 10L)),
+    mtry(c(1L, nVar - 1)),
+    size = 40)
+  
+neutro_wf = workflow() %>% 
+    add_recipe(neutro_recipe) %>% 
+    add_model(rf_spec)
+  
+neutro_folds = vfold_cv(neutro_data, strata = n, v = 5, repeats = 3)
+  
+neutro_rs = tune_grid(
+    neutro_wf,
+    neutro_folds,
+    grid = rf_grid,
+    metrics = metric_set(rsq),
+    control = control_grid(verbose = FALSE)
+  )
+  
+best_rs = show_best(neutro_rs, metric = "rsq")
+best_rs_paras = best_rs %>% slice(1) 
+neutro_cv_rs = best_rs_paras$mean
+print(paste0("cross validation rsq is ", neutro_cv_rs))
+  
+choose_tree = neutro_rs %>% select_best(metric = "rsq")
+  
+final_model = neutro_wf %>% 
+    finalize_workflow(choose_tree) 
+
+final_fit = fit(final_model, data = neutro_data)
+predictions = predict(final_fit, neutro_data)
+results = bind_cols(neutro_data, predictions)
+model_rsq = rsq(results, truth = n, estimate = .pred)
+print(paste0("rsq is ", model_rsq$.estimate))
+neutro_final_rs = model_rsq
+  
+# create VIP
+imp_spec = rf_spec %>% 
+    finalize_model(select_best(neutro_rs, metric = "rsq")) %>% 
+    set_engine("ranger", importance = "permutation") 
+
+neutro_vip_plot = workflow() %>% 
+      add_recipe(neutro_recipe) %>% 
+      add_model(imp_spec) %>% 
+      fit(neutro_data) %>% 
+      extract_fit_parsnip() %>% 
+      vip(geom = "point", num_features = 10, scale = F)
+
+neutro_vip_plot
+
+# save VIP
+file_name = paste0("Figure/Neutrophile/VIP/neutro_non_robot_VIP.tiff")
+  ggsave(file_name, height = 4, width = 8, units = "in", dpi = "retina")
+  
+# Create PDPs
+neutro_vip_features = neutro_vip_plot$data$Variable
+  
+# Loop through variable names and categorize based on type in the dataset
+numVar <- character()
+catVar <- character()
+
+
+for (var in neutro_vip_features) {
+    if (is.numeric(neutro_data[[var]])) {
+      numVar = c(numVar, var)
+    } else {
+      catVar = c(catVar, var)
+    }
+  }
+  
+model_explainer = explain_tidymodels(
+    final_fit,
+    data = neutro_data,
+    y = neutro_data$n,
+    verbose = F)
+  
+numPlots = list()
+for (j in 1:length(numVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = numVar[j])
+    
+    pdp = ggplot_pdp(profile, !!as.name(numVar[j])) +
+      labs(x = numVar[j],
+           y = "Neutrophile",
+           color = NULL)
+    
+file_name = paste0("Figure/Neutrophile/PDP/neutro_non_robot_pdp_", numVar[j], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    numPlots[[j]] = pdp
+    
+  }
+  
+numPlots_grid = gridExtra::grid.arrange(grobs = numPlots, ncol = 3)
+file_name = paste0("Figure/Neutrophile/PDP/NumVars_neutro_non_robot.pdf")
+  ggsave(file_name, numPlots_grid, 
+         height = 4, width = 8, units = "in", dpi = "retina")
+  
+  
+catPlots = list()
+for (k in 1:length(catVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = catVar[k])
+    
+    pdp = ggplot_pdp_cat(profile, !!as.name(catVar[k])) +
+      labs(x = catVar[k],
+           y = "Neutrophile",
+           color = NULL)+
+      theme(axis.text.x = element_text(size = 4))
+    
+    file_name = paste0("Figure/Neutrophile/PDP/neutro_non_robot_pdp_", catVar[k], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    catPlots[[k]] = pdp
+    
+  }
+  
+catPlots_grid = gridExtra::grid.arrange(grobs = catPlots, ncol = 3)
+file_name = paste0("Figure/Neutrophile/PDP/CatVars_neutro_non_robot.pdf")
+  ggsave(file_name, catPlots_grid,
+         height = 4, width = 8, units = "in", dpi = "retina")
+```
+
+# Neutro for all farms
+```{r}
+set.seed(1)
+
+# neutro model
+neutro_data_robot = neutro_data_robot %>% drop_na(n)
+
+neutro_recipe = recipe(n ~ ., data = neutro_data_robot) %>% 
+    step_impute_bag(all_predictors()) %>%  
+    step_zv(all_predictors()) %>% 
+    step_normalize(all_numeric_predictors()) #%>%
+    #step_dummy(all_nominal_predictors(), one_hot = FALSE)
+
+rf_spec = rand_forest(
+     trees = 1000,
+     min_n = tune(),
+     mtry = tune()) %>% 
+     set_engine("ranger") %>% 
+     set_mode("regression")
+  
+dimension = neutro_recipe %>% prep() %>% bake(NULL) %>% dim()
+nVar = dimension[2]
+  
+rf_grid = grid_max_entropy(
+    min_n(c(2L, 10L)),
+    mtry(c(1L, nVar - 1)),
+    size = 40)
+  
+neutro_wf = workflow() %>% 
+    add_recipe(neutro_recipe) %>% 
+    add_model(rf_spec)
+  
+neutro_folds = vfold_cv(neutro_data_robot, strata = n, v = 5, repeats = 3)
+  
+neutro_rs = tune_grid(
+    neutro_wf,
+    neutro_folds,
+    grid = rf_grid,
+    metrics = metric_set(rsq),
+    control = control_grid(verbose = FALSE)
+  )
+  
+best_rs = show_best(neutro_rs, metric = "rsq")
+best_rs_paras = best_rs %>% slice(1) 
+neutro_robot_cv_rs = best_rs_paras$mean
+print(paste0("cross validation rsq is ", neutro_robot_cv_rs))
+  
+choose_tree = neutro_rs %>% select_best(metric = "rsq")
+  
+final_model = neutro_wf %>% 
+    finalize_workflow(choose_tree) 
+
+final_fit = fit(final_model, data = neutro_data_robot)
+predictions = predict(final_fit, neutro_data_robot)
+results = bind_cols(neutro_data_robot, predictions)
+model_rsq = rsq(results, truth = n, estimate = .pred)
+print(paste0("rsq is ", model_rsq$.estimate))
+neutro_final_rs_robot = model_rsq
+  
+# create VIP
+imp_spec = rf_spec %>% 
+    finalize_model(select_best(neutro_rs, metric = "rsq")) %>% 
+    set_engine("ranger", importance = "permutation")
+
+neutro_vip_plot_robot = workflow() %>% 
+      add_recipe(neutro_recipe) %>% 
+      add_model(imp_spec) %>% 
+      fit(neutro_data_robot) %>% 
+      extract_fit_parsnip() %>% 
+      vip(geom = "point", num_features = 10)
+
+neutro_vip_plot_robot
+
+# save VIP
+file_name = paste0("Figure/Neutrophile/VIP/neutro_all_farm_VIP.tiff")
+  ggsave(file_name, height = 4, width = 8, units = "in", dpi = "retina")
+  
+# Create PDPs
+neutro_vip_features_robot = neutro_vip_plot_robot$data$Variable
+  
+# Loop through variable names and categorize based on type in the dataset
+numVar <- character()
+catVar <- character()
+
+
+for (var in neutro_vip_features_robot) {
+    if (is.numeric(neutro_data_robot[[var]])) {
+      numVar = c(numVar, var)
+    } else {
+      catVar = c(catVar, var)
+    }
+  }
+  
+model_explainer = explain_tidymodels(
+    final_fit,
+    data = neutro_data_robot,
+    y = neutro_data_robot$n,
+    verbose = F)
+  
+numPlots = list()
+for (j in 1:length(numVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = numVar[j])
+    
+    pdp = ggplot_pdp(profile, !!as.name(numVar[j])) +
+      labs(x = numVar[j],
+           y = "Neutrophile",
+           color = NULL)
+    
+file_name = paste0("Figure/Neutrophile/PDP/neutro_all_farm_pdp_", numVar[j], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    numPlots[[j]] = pdp
+    
+  }
+  
+numPlots_grid = gridExtra::grid.arrange(grobs = numPlots, ncol = 3)
+file_name = paste0("Figure/Neutrophile/PDP/NumVars_neutro_all_farm.pdf")
+  ggsave(file_name, numPlots_grid, 
+         height = 4, width = 8, units = "in", dpi = "retina")
+  
+  
+catPlots = list()
+for (k in 1:length(catVar)) {
+    profile = model_profile(model_explainer, N = NULL, variables = catVar[k])
+    
+    pdp = ggplot_pdp_cat(profile, !!as.name(catVar[k])) +
+      labs(x = catVar[k],
+           y = "Neutrophile",
+           color = NULL)+
+      theme(axis.text.x = element_text(size = 4))
+    
+    file_name = paste0("Figure/Neutrophile/PDP/neutro_all_farm_pdp_", catVar[k], ".tiff")
+    ggsave(file_name, height = 4, width = 4, units = "in", dpi = "retina")
+    
+    catPlots[[k]] = pdp
+    
+  }
+  
+catPlots_grid = gridExtra::grid.arrange(grobs = catPlots, ncol = 3)
+file_name = paste0("Figure/Neutrophile/PDP/CatVars_neutro_all_farm.pdf")
+  ggsave(file_name, catPlots_grid,
+         height = 4, width = 8, units = "in", dpi = "retina")
+```
+
+
+# print model performance
+```{r}
+print(paste0("Non robot farm sensory cross validation rsq is ", sensory_cv_rs))
+print(paste0("All farm sensory cross validation rsq is ", sensory_robot_cv_rs))
+print(paste0("Non robot farm oxidation cross validation roc_auc is ", oxi_cv_rs))
+print(paste0("All farm oxidation cross validation roc_auc is ", oxi_robot_cv_rs))
+print(paste0("Non robot farm MSC cross validation rsq is ", msc_cv_rs))
+print(paste0("All farm MSC cross validation rsq is ", msc_robot_cv_rs))
+print(paste0("Non robot farm TSC cross validation rsq is ", tsc_cv_rs))
+print(paste0("All farm TSC cross validation rsq is ", tsc_robot_cv_rs))
+print(paste0("Non robot farm PSC cross validation rsq is ", psc_cv_rs))
+print(paste0("All farm PSC cross validation rsq is ", psc_robot_cv_rs))
+print(paste0("Non robot farm BAB cross validation rsq is ", bab_cv_rs))
+print(paste0("All farm BAB cross validation rsq is ", bab_robot_cv_rs))
+print(paste0("Non robot farm neutrophile cross validation rsq is ", neutro_cv_rs))
+print(paste0("All farm neutrophile cross validation rsq is ", neutro_robot_cv_rs))
+
+```
+
+
+```{r}
+Final_Data %>%
+  group_by(Housing_Style, Stocking_Density, Bedding_Type, Bedding_Additives, Bedding_Frequency, Alleyway_Cleaning)%>%
+  count()%>%
+  View()
+```
+
+```{r}
+uddermod <- lm(scc~  Different_People_Milk + People_Milking_Shift + Employee_Training + Retraining + SOP_Access + Glove_Use + Glove_Changing + Predip_Use + Predip_Type + Postdip_Type,  data = Final_Data)
+
+summary(uddermod)
+car::vif(uddermod)
+
+```
+```{r}
+#so when udder stimulation is in the model it gives the error aliased coefficients, yet when I remove them one at a time it gives me the error each time, indicating it is aliased with more than one. I will try additive modeling? -> Seems like udder stimulation is aliased with many 
+trainingmod <- lm(scc~ Region + Housing_Style + Bedding_Type + Bedding_Additives + Bedding_Frequency + Alleyway_Cleaning + Number_Cows + Cows_Milk_Frequency +  Udder_Stimulation + Different_People_Milk , data = Final_Data)
+
+summary(trainingmod)
+car::vif(trainingmod)
+
+```
+```{r}
+#trying to see if I can find the variable that is aliased with the combo of Udder_Stimulation and Different_People_Milk
+#Seems to be Bedding_Additives
+trainingmod <- lm(scc~ Udder_Stimulation + Different_People_Milk + Region + Housing_Style + Bedding_Type + Bedding_Additives + Bedding_Frequency + Alleyway_Cleaning + Number_Cows + Cows_Milk_Frequency, data = Final_Data)
+
+summary(trainingmod)
+car::vif(trainingmod)
+```
+```{r}
+#Testing Udder_Stimulation, Bedding_Additives, and Cows_Milk_Frequency
+trainingmod <- lm(scc~ Udder_Stimulation + Bedding_Additives + Cows_Milk_Frequency , data = Final_Data)
+
+summary(trainingmod)
+car::vif(trainingmod)
+```
+
+
+```{r}
+#Udder Stimulation is aliased with Different People Milk, People_Milking_Shift, Employee training, Retraining, SOP_Access, Glove Use, Glove Changing, Predip_Type, Postdip_Type, 
+#But this is not the case when different people milk and udder stimulation are the only ones
+trainingmod <- lm(scc~ Udder_Stimulation +Different_People_Milk + People_Milking_Shift + Employee_Training + Retraining + SOP_Access + Glove_Use + Glove_Changing + Predip_Type + Postdip_Type, data = Final_Data)
+
+summary(trainingmod)
+car::vif(trainingmod)
+```
+
+
+```{r}
+mod <- lm(scc~ Region + Housing_Style + Bedding_Type + Bedding_Additives + Bedding_Frequency + Alleyway_Cleaning + Number_Cows +  Cows_Milk_Frequency +  Different_People_Milk + People_Milking_Shift + Employee_Training + Retraining + SOP_Access + Glove_Use + Glove_Changing + Predip_Use + Predip_Type + Postdip_Type + Udder_Clipped_Flamed + Udder_Clipped_Flamed_Time_3, data = Final_Data)
+
+summary(mod)
+car::vif(mod)
+```
+
+```{r}
+alias(uddermod)
+```
+
+#When I try to do the model for Housing_Style and Stocking_Density it gives me the error: Error in `contrasts<-`(`*tmp*`, value = contr.funs[1 + isOF[nn]]) : contrasts can be applied only to factors with 2 or more levels
+#I checked the structure of the data and it said stocking density is not a factor so I'm gonna try and change it to a factor
+
+```{r}
+Final_Data$Stocking_Density <- as.factor(Final_Data$Stocking_Density)
+#so this changed it to a factor but for some reason I am still getting the error
+levels(Final_Data$Stocking_Density)
+levels(Final_Data$Housing_Style)
+modpairs <- lm(scc~ Housing_Style + Stocking_Density, data = Final_Data)
+
+summary(modpairs)
+car::vif(modpairs)
+```
+```{r}
+Final_Data$Stocking_Density[Final_Data$Housing_Style!="free stalls"] <- 100  
+library(ggplot2)
+ggplot(Final_Data, aes(x=Stocking_Density,  y=scc))+geom_point()+facet_grid(.~Housing_Style)
+nestedmod <- lm(scc~Housing_Style + Housing_Style:Stocking_Density, data=Final_Data)
+summary(nestedmod)  #note there is no estimate for Stocking Density for bedded pack and tie stalls because Stocking Density was set constant for those levels of Housing Style
+anova(nestedmod)
+```
+
+
+```{r}
+Final_Data%>%
+  group_by(Housing_Style, Stocking_Density)%>%
+  count()%>%
+  View()
+```
+
+```{r}
+modpairs <- lm(scc~ Retraining + Retraining_Frequency , data = Final_Data)
+
+summary(modpairs)
+car::vif(modpairs)
+```
+
+```{r}
+modclipped <- lm(scc~ Udder_Clipped_Flamed + Udder_Clipped_Flamed_Time_3 , data = Final_Data)
+
+summary(modclipped)
+car::vif(modclipped)
+```
+
+```{r}
+Final_Data%>%
+  group_by(Retraining, Retraining_Frequency, Retraining_Type)%>%
+  count()%>%
+  View()
+```
+
+```{r}
+modpairs <- lm(scc~  Glove_Changing + When_Glove_Changing , data = Final_Data)
+
+summary(modpairs)
+car::vif(modpairs)
+```
+```{r}
+Final_Data%>%
+  group_by( Glove_Use, Glove_Changing, When_Glove_Changing)%>%
+  count()%>%
+  View()
+```
+
+```{r}
+modpairs <- lm(scc~  Water_to_Clean_Milking + Cows_Present_While_Clean_Milking , data = Final_Data)
+
+summary(modpairs)
+car::vif(modpairs)
+```
+```{r}
+Final_Data%>%
+  group_by(Water_to_Clean_Milking , Cows_Present_While_Clean_Milking)%>%
+  count()%>%
+  View()
+```
+
+```{r}
+table(Final_Data$Water_Temperature, useNA = "ifany")
+```
+
+```{r}
+table(Final_Data$Pounds_Vacuum, useNA = "ifany")
+```
+
+```{r}
+table(Final_Data$Sprinkler, Final_Data$Sprinkler_3_days, useNA = "ifany")
+```
+
+```{r}
+#Changed Survey answers for pasture time to eliminate words, look at other copies to see original answers
+table(Final_Data$Pasture, Final_Data$Pasture_Time, useNA = "ifany")
+```
+
+```{r}
+with(Final_Data, addmargins(table(Predip_Type, Postdip_Type)))
+```
+
+```{r}
+table(Final_Data$Udder_Clipped_Flamed, Final_Data$Udder_Clipped_Flamed_Time_3, useNA = "ifany")
+```
+```{r}
+table(Final_Data$Towel_Type, Final_Data$Cow_Per_Towel, useNA = "ifany")
+table(Final_Data$Towel_Type, Final_Data$Detergent_Towel, Final_Data$Bleach_Chlorine_Towel, useNA = "ifany")
+#Removed cow per towel from table because it is how you use the towel and not how the towel is treated before/after use
+#The table method Erika and I created on 1/6/25 to look at multiple combinations together
+Final_Data%>%
+  group_by(Towel_Type, Detergent_Towel, Bleach_Chlorine_Towel, Machine_Dry_Towel, Towel_Replacement)%>%
+  count()%>%
+  View()
+```
+
+```{r}
+ggplot(subset(Final_Data), aes( x = Predip_Type, y = scc)) + geom_point() + geom_boxplot() + scale_y_continuous(trans = "log") 
+```
+
+
+```{r}
+ggplot(subset(Final_Data), aes( x = Predip_Type, y = scc)) + geom_point() + geom_boxplot() + scale_y_continuous(trans = "log") + facet_wrap(~Postdip_Type)
+```
+
+
+```{r}
+ggplot(Final_Data, aes(x = Sampling, y = scc, group = FarmID)) + geom_line() + facet_wrap(~Predip_Type) + scale_y_continuous(trans = "log")
+```
+
+
+
+```{r}
+ggplot(subset(Final_Data), aes( x = Different_People_Milk, y = scc)) + geom_point() +  scale_y_continuous(trans = "log") 
+
+```
+```{r}
+hist(Final_Data$Udder_Clipped_Flamed_Time_3, breaks=2, xlim = c(0,1 ),ylim = c(0, 180), main = "Udders Clipped/Flamed Last 3 months", xlab= "Udders Clipped/Flamed Last 3 month", ylab= "Frequency", col= "blue")
+```
+
+```{r}
+hist(Final_Data$Employee_Retention_Histogram, breaks=6, xlim = c(0,10),ylim = c(0, 180), main = "Employee Retention", xlab= "Employee Retention (years)", ylab= "Frequency", col= "blue")
+```
+
+
+```{r}
+primary_var <- "loglpc"
+
+# Identify column indices
+primary_col <- which(names(Final_Data) == primary_var)  # Early column (e.g., "scc")
+right_cols <- 93  # Columns further to the right
+
+# Specify columns to skip (by position or name)
+skip_cols <- c(39)  # Example: skip columns 37
+
+# Exclude skipped columns
+selected_later_cols <- setdiff(right_cols, skip_cols)
+
+# Combine the primary column with the adjusted later columns
+selected_columns <- c(primary_col, selected_later_cols)
+
+# Use the combined indices in ggpairs
+pairs <- ggpairs(Final_Data, columns = selected_columns,
+                 cardinality_threshold = 100,
+                 upper = list(continuous = "points", combo = "box_no_facet", discrete = "count", na = "na"),
+                 lower = list(continuous = "cor", combo = "facethist", discrete = "facetbar", na = "na"))
+
+# Match the primary variable position
+pvar_pos <- match(primary_var, pairs$yAxisLabels)
+
+# Extract plots
+plots <- lapply(2:pairs$ncol, function(j) getPlot(pairs, i = pvar_pos, j = j))
+
+# Function remains the same
+plot_ggpairs_primary_vars <- function(plots = plots, n_rows = NULL, n_cols = NULL) {
+  if (is.null(n_rows) | is.null(n_cols)) {
+    stop("n_rows and n_cols must be specified")
+  }
+  lst <- split(plots, 1:n_rows)
+  output <- list()
+  for (i in 1:length(lst)) {
+    output[[i]] <- wrap_elements(ggmatrix_gtable(ggmatrix(
+      lst[[i]],
+      nrow = 1,
+      ncol = n_cols,
+      xAxisLabels =  "Water Sources",
+      yAxisLabels = "Log LPC CFU/ml"
+    )))
+  }
+  wrap_plots(output, nrow = n_rows)
+}
+
+# Plot using specified rows and columns
+plot_ggpairs_primary_vars(plots, n_rows = 1, n_cols = 1)
+
+
+```
+
+```{r}
+
+# Identify column indices
+primary_col <- which(names(Final_Data) == primary_var)  # Early column (e.g., "scc")
+right_cols <- 48:56  # Columns further to the right
+
+# Combine the primary column with the adjusted later columns
+selected_columns <- c(primary_col, right_cols)
+
+# Use the combined indices in ggpairs
+pairs <- ggpairs(Final_Data, columns = selected_columns,
+                 cardinality_threshold = 100,
+                 upper = list(continuous = "points", combo = "box_no_facet", discrete = "count", na = "na"),
+                 lower = list(continuous = "cor", combo = "facethist", discrete = "facetbar", na = "na"))
+
+# Match the primary variable position
+pvar_pos <- match(primary_var, pairs$yAxisLabels)
+
+# Extract plots
+plots <- lapply(2:pairs$ncol, function(j) getPlot(pairs, i = pvar_pos, j = j))
+
+# Function remains the same
+plot_ggpairs_primary_vars <- function(plots = plots, n_rows = NULL, n_cols = NULL) {
+  if (is.null(n_rows) | is.null(n_cols)) {
+    stop("n_rows and n_cols must be specified")
+  }
+  lst <- split(plots, 1:n_rows)
+  output <- list()
+  for (i in 1:length(lst)) {
+    output[[i]] <- wrap_elements(ggmatrix_gtable(ggmatrix(
+      lst[[i]],
+      nrow = 1,
+      ncol = n_cols,
+      xAxisLabels = unlist(map(1:n_cols, ~pluck(lst[[i]], .x, "labels", "x"))),
+      yAxisLabels = primary_var
+    )))
+  }
+  wrap_plots(output, nrow = n_rows)
+}
+
+# Plot using specified rows and columns
+plot_ggpairs_primary_vars(plots, n_rows = 3, n_cols = 3)
+
+```
+```{r}
+
+# Identify column indices
+primary_col <- which(names(Final_Data) == primary_var)  # Early column (e.g., "scc")
+right_cols <- 57:65  # Columns further to the right
+
+# Combine the primary column with the adjusted later columns
+selected_columns <- c(primary_col, right_cols)
+
+# Use the combined indices in ggpairs
+pairs <- ggpairs(Final_Data, columns = selected_columns,
+                 cardinality_threshold = 100,
+                 upper = list(continuous = "points", combo = "box_no_facet", discrete = "count", na = "na"),
+                 lower = list(continuous = "cor", combo = "facethist", discrete = "facetbar", na = "na"))
+
+# Match the primary variable position
+pvar_pos <- match(primary_var, pairs$yAxisLabels)
+
+# Extract plots
+plots <- lapply(2:pairs$ncol, function(j) getPlot(pairs, i = pvar_pos, j = j))
+
+# Function remains the same
+plot_ggpairs_primary_vars <- function(plots = plots, n_rows = NULL, n_cols = NULL) {
+  if (is.null(n_rows) | is.null(n_cols)) {
+    stop("n_rows and n_cols must be specified")
+  }
+  lst <- split(plots, 1:n_rows)
+  output <- list()
+  for (i in 1:length(lst)) {
+    output[[i]] <- wrap_elements(ggmatrix_gtable(ggmatrix(
+      lst[[i]],
+      nrow = 1,
+      ncol = n_cols,
+      xAxisLabels = unlist(map(1:n_cols, ~pluck(lst[[i]], .x, "labels", "x"))),
+      yAxisLabels = primary_var
+    )))
+  }
+  wrap_plots(output, nrow = n_rows)
+}
+
+# Plot using specified rows and columns
+plot_ggpairs_primary_vars(plots, n_rows = 3, n_cols = 3)
+
+```
+
+```{r}
+
+# Identify column indices
+primary_col <- which(names(Final_Data) == primary_var)  # Early column (e.g., "scc")
+right_cols <- 66:75  # Columns further to the right
+
+# Specify columns to skip (by position or name)
+skip_cols <- c(70)  # Example: skip columns 37
+
+# Exclude skipped columns
+selected_later_cols <- setdiff(right_cols, skip_cols)
+
+# Combine the primary column with the adjusted later columns
+selected_columns <- c(primary_col, selected_later_cols)
+
+# Use the combined indices in ggpairs
+pairs <- ggpairs(Final_Data, columns = selected_columns,
+                 cardinality_threshold = 100,
+                 upper = list(continuous = "points", combo = "box_no_facet", discrete = "count", na = "na"),
+                 lower = list(continuous = "cor", combo = "facethist", discrete = "facetbar", na = "na"))
+
+# Match the primary variable position
+pvar_pos <- match(primary_var, pairs$yAxisLabels)
+
+# Extract plots
+plots <- lapply(2:pairs$ncol, function(j) getPlot(pairs, i = pvar_pos, j = j))
+
+# Function remains the same
+plot_ggpairs_primary_vars <- function(plots = plots, n_rows = NULL, n_cols = NULL) {
+  if (is.null(n_rows) | is.null(n_cols)) {
+    stop("n_rows and n_cols must be specified")
+  }
+  lst <- split(plots, 1:n_rows)
+  output <- list()
+  for (i in 1:length(lst)) {
+    output[[i]] <- wrap_elements(ggmatrix_gtable(ggmatrix(
+      lst[[i]],
+      nrow = 1,
+      ncol = n_cols,
+      xAxisLabels = unlist(map(1:n_cols, ~pluck(lst[[i]], .x, "labels", "x"))),
+      yAxisLabels = primary_var
+    )))
+  }
+  wrap_plots(output, nrow = n_rows)
+}
+
+# Plot using specified rows and columns
+plot_ggpairs_primary_vars(plots, n_rows = 3, n_cols = 3)
+
+```
+
+```{r}
+
+# Identify column indices
+primary_col <- which(names(Final_Data) == primary_var)  # Early column (e.g., "scc")
+right_cols <- 76:84  # Columns further to the right
+
+# Combine the primary column with the adjusted later columns
+selected_columns <- c(primary_col, right_cols)
+
+# Use the combined indices in ggpairs
+pairs <- ggpairs(Final_Data, columns = selected_columns,
+                 cardinality_threshold = 100,
+                 upper = list(continuous = "points", combo = "box_no_facet", discrete = "count", na = "na"),
+                 lower = list(continuous = "cor", combo = "facethist", discrete = "facetbar", na = "na"))
+
+# Match the primary variable position
+pvar_pos <- match(primary_var, pairs$yAxisLabels)
+
+# Extract plots
+plots <- lapply(2:pairs$ncol, function(j) getPlot(pairs, i = pvar_pos, j = j))
+
+# Function remains the same
+plot_ggpairs_primary_vars <- function(plots = plots, n_rows = NULL, n_cols = NULL) {
+  if (is.null(n_rows) | is.null(n_cols)) {
+    stop("n_rows and n_cols must be specified")
+  }
+  lst <- split(plots, 1:n_rows)
+  output <- list()
+  for (i in 1:length(lst)) {
+    output[[i]] <- wrap_elements(ggmatrix_gtable(ggmatrix(
+      lst[[i]],
+      nrow = 1,
+      ncol = n_cols,
+      xAxisLabels = unlist(map(1:n_cols, ~pluck(lst[[i]], .x, "labels", "x"))),
+      yAxisLabels = primary_var
+    )))
+  }
+  wrap_plots(output, nrow = n_rows)
+}
+
+# Plot using specified rows and columns
+plot_ggpairs_primary_vars(plots, n_rows = 3, n_cols = 3)
+
+```
+
+```{r}
+
+# Identify column indices
+primary_col <- which(names(Final_Data) == primary_var)  # Early column (e.g., "scc")
+right_cols <- 85:93  # Columns further to the right
+
+# Combine the primary column with the adjusted later columns
+selected_columns <- c(primary_col, right_cols)
+
+# Use the combined indices in ggpairs
+pairs <- ggpairs(Final_Data, columns = selected_columns,
+                 cardinality_threshold = 100,
+                 upper = list(continuous = "points", combo = "box_no_facet", discrete = "count", na = "na"),
+                 lower = list(continuous = "cor", combo = "facethist", discrete = "facetbar", na = "na"))
+
+# Match the primary variable position
+pvar_pos <- match(primary_var, pairs$yAxisLabels)
+
+# Extract plots
+plots <- lapply(2:pairs$ncol, function(j) getPlot(pairs, i = pvar_pos, j = j))
+
+# Function remains the same
+plot_ggpairs_primary_vars <- function(plots = plots, n_rows = NULL, n_cols = NULL) {
+  if (is.null(n_rows) | is.null(n_cols)) {
+    stop("n_rows and n_cols must be specified")
+  }
+  lst <- split(plots, 1:n_rows)
+  output <- list()
+  for (i in 1:length(lst)) {
+    output[[i]] <- wrap_elements(ggmatrix_gtable(ggmatrix(
+      lst[[i]],
+      nrow = 1,
+      ncol = n_cols,
+      xAxisLabels = unlist(map(1:n_cols, ~pluck(lst[[i]], .x, "labels", "x"))),
+      yAxisLabels = primary_var
+    )))
+  }
+  wrap_plots(output, nrow = n_rows)
+}
+
+# Plot using specified rows and columns
+plot_ggpairs_primary_vars(plots, n_rows = 3, n_cols = 3)
+
+```
+
+```{r}
+# Identify column indices
+primary_col <- which(names(Final_Data) == primary_var)  # Early column (e.g., "scc")
+right_cols <- 94:99  # Columns further to the right
+
+# Combine the primary column with the adjusted later columns
+selected_columns <- c(primary_col, right_cols)
+
+# Use the combined indices in ggpairs
+pairs <- ggpairs(Final_Data, columns = selected_columns,
+                 cardinality_threshold = 100,
+                 upper = list(continuous = "points", combo = "box_no_facet", discrete = "count", na = "na"),
+                 lower = list(continuous = "cor", combo = "facethist", discrete = "facetbar", na = "na"))
+
+# Match the primary variable position
+pvar_pos <- match(primary_var, pairs$yAxisLabels)
+
+# Extract plots
+plots <- lapply(2:pairs$ncol, function(j) getPlot(pairs, i = pvar_pos, j = j))
+
+# Function remains the same
+plot_ggpairs_primary_vars <- function(plots = plots, n_rows = NULL, n_cols = NULL) {
+  if (is.null(n_rows) | is.null(n_cols)) {
+    stop("n_rows and n_cols must be specified")
+  }
+  lst <- split(plots, 1:n_rows)
+  output <- list()
+  for (i in 1:length(lst)) {
+    output[[i]] <- wrap_elements(ggmatrix_gtable(ggmatrix(
+      lst[[i]],
+      nrow = 1,
+      ncol = n_cols,
+      xAxisLabels = unlist(map(1:n_cols, ~pluck(lst[[i]], .x, "labels", "x"))),
+      yAxisLabels = primary_var
+    )))
+  }
+  wrap_plots(output, nrow = n_rows)
+}
+
+# Plot using specified rows and columns
+plot_ggpairs_primary_vars(plots, n_rows = 2, n_cols = 3)
+
+```
+
+```{r}
+# Identify column indices
+
+primary_col <- which(names(Final_Data) == primary_var)  # Early column (e.g., "scc")
+right_cols <- 101:104  # Columns further to the right
+
+# Combine the primary column with the adjusted later columns
+selected_columns <- c(primary_col, right_cols)
+
+# Use the combined indices in ggpairs
+pairs <- ggpairs(Final_Data, columns = selected_columns,
+                 cardinality_threshold = 100,
+                 upper = list(continuous = "points", combo = "box_no_facet", discrete = "count", na = "na"),
+                 lower = list(continuous = "cor", combo = "facethist", discrete = "facetbar", na = "na"))
+
+# Match the primary variable position
+pvar_pos <- match(primary_var, pairs$yAxisLabels)
+
+# Extract plots
+plots <- lapply(2:pairs$ncol, function(j) getPlot(pairs, i = pvar_pos, j = j))
+
+# Function remains the same
+plot_ggpairs_primary_vars <- function(plots = plots, n_rows = NULL, n_cols = NULL) {
+  if (is.null(n_rows) | is.null(n_cols)) {
+    stop("n_rows and n_cols must be specified")
+  }
+  lst <- split(plots, 1:n_rows)
+  output <- list()
+  for (i in 1:length(lst)) {
+    output[[i]] <- wrap_elements(ggmatrix_gtable(ggmatrix(
+      lst[[i]],
+      nrow = 1,
+      ncol = n_cols,
+      xAxisLabels = unlist(map(1:n_cols, ~pluck(lst[[i]], .x, "labels", "x"))),
+      yAxisLabels = primary_var
+    )))
+  }
+  wrap_plots(output, nrow = n_rows)
+}
+
+# Plot using specified rows and columns
+plot_ggpairs_primary_vars(plots, n_rows = 2, n_cols = 2)
+
+```
+
+```{r}
+Final_Test_Results_Unedited <- read_excel("finalmilkresultsunedited.xlsx", 
+    na = "#NUM!")%>%
+  separate_wider_delim(SampleID, names=c("FarmID","Sampling"),delim="-")%>%
+  mutate(FarmID = as.numeric(sub("R","",FarmID)))
+
+mean(Final_Test_Results_Unedited$scc, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$scc, na.rm = TRUE)
+
+mean(Final_Test_Results_Unedited$logapc, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$logapc, na.rm = TRUE)
+
+mean(Final_Test_Results_Unedited$logbacto, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$logbacto, na.rm = TRUE)
+
+min(Final_Test_Results_Unedited$logpi, na.rm = TRUE)
+max(Final_Test_Results_Unedited$logpi, na.rm = TRUE)
+mean(Final_Test_Results_Unedited$logpi, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$logpi, na.rm = TRUE)
+
+min(Final_Test_Results_Unedited$loglpc, na.rm = TRUE)
+max(Final_Test_Results_Unedited$loglpc, na.rm = TRUE)
+mean(Final_Test_Results_Unedited$loglpc, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$loglpc, na.rm = TRUE)
+
+
+mean(Final_Test_Results_Unedited$logcc, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$logcc, na.rm = TRUE)
+
+mean(Final_Test_Results_Unedited$logbab, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$logbab, na.rm = TRUE)
+
+
+max(Final_Test_Results_Unedited$logmsc, na.rm = TRUE)
+mean(Final_Test_Results_Unedited$logmsc, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$logmsc, na.rm = TRUE)
+
+mean(Final_Test_Results_Unedited$logtsc, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$logtsc, na.rm = TRUE)
+
+mean(Final_Test_Results_Unedited$logpsc, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$logpsc, na.rm = TRUE)
+
+min(Final_Test_Results_Unedited$tlc, na.rm = TRUE)
+max(Final_Test_Results_Unedited$tlc, na.rm = TRUE)
+mean(Final_Test_Results_Unedited$tlc, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$tlc, na.rm = TRUE)
+
+mean(Final_Test_Results_Unedited$m, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$m, na.rm = TRUE)
+
+mean(Final_Test_Results_Unedited$l, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$l, na.rm = TRUE)
+
+mean(Final_Test_Results_Unedited$n, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$n, na.rm = TRUE)
+
+min(Final_Test_Results_Unedited$bf, na.rm = TRUE)
+max(Final_Test_Results_Unedited$bf, na.rm = TRUE)
+mean(Final_Test_Results_Unedited$bf, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$bf, na.rm = TRUE)
+
+mean(Final_Test_Results_Unedited$mixedfa, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$mixedfa, na.rm = TRUE)
+
+mean(Final_Test_Results_Unedited$denovofa, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$denovofa, na.rm = TRUE)
+
+mean(Final_Test_Results_Unedited$preformfa, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$preformfa, na.rm = TRUE)
+
+mean(Final_Test_Results_Unedited$lactose, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$lactose, na.rm = TRUE)
+
+min(Final_Test_Results_Unedited$protein, na.rm = TRUE)
+max(Final_Test_Results_Unedited$protein, na.rm = TRUE)
+mean(Final_Test_Results_Unedited$protein, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$protein, na.rm = TRUE)
+
+mean(Final_Test_Results_Unedited$solids, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$solids, na.rm = TRUE)
+
+mean(Final_Test_Results_Unedited$mun, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$mun, na.rm = TRUE)
+
+mean(Final_Test_Results_Unedited$sensory, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$sensory, na.rm = TRUE)
+
+mean(Final_Test_Results_Unedited$logpsc, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$logpsc, na.rm = TRUE)
+
+min(Final_Test_Results_Unedited$n, na.rm = TRUE)
+max(Final_Test_Results_Unedited$n, na.rm = TRUE)
+mean(Final_Test_Results_Unedited$n, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$n, na.rm = TRUE)
+
+min(Final_Test_Results_Unedited$l, na.rm = TRUE)
+max(Final_Test_Results_Unedited$l, na.rm = TRUE)
+mean(Final_Test_Results_Unedited$l, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$l, na.rm = TRUE)
+
+min(Final_Test_Results_Unedited$m, na.rm = TRUE)
+max(Final_Test_Results_Unedited$m, na.rm = TRUE)
+mean(Final_Test_Results_Unedited$m, na.rm = TRUE)
+sd(Final_Test_Results_Unedited$m, na.rm = TRUE)
+
+```
+
+```{r}
+surveysA <-  Final_Data[grepl("A", Final_Data$Sampling, ignore.case = TRUE), ]
+table(surveysA$Region)
+table(surveysA$Housing_Style)
+table(surveysA$Bedding_Type)
+table(surveysA$Bedding_Additives)
+
+#number cows
+breaks <- c(-Inf, 100, 501, 1001, 2000, Inf)
+labels <- c('<100', '100-500', '501-1000', '1001-2000', '>2000')
+
+surveysA$Number_Cows <- cut(surveysA$Number_Cows, breaks = breaks, labels = labels, right = FALSE)
+  
+ summary_table  <- as.data.frame(table(surveysA$Number_Cows))
+ names(summary_table) <- c("Group", "Number_of_Farms")
+
+print(summary_table)
+
+table(surveysA$Stocking_Density)
+
+#bedding added per week
+table(surveysA$Bedding_Frequency)
+
+#Alleyway cleaning
+table(surveysA$Alleyway_Cleaning)
+
+#Number of cow milkings
+table(surveysA$Cows_Milk_Frequency)
+
+#robot
+table(surveysA$Robot_Milk)
+
+#number of people milking in a week
+table(surveysA$Different_People_Milk)
+sum(is.na(surveysA$Different_People_Milk))
+
+#number of people working in milking parlor per shift
+table(surveysA$People_Milking_Shift)
+sum(is.na(surveysA$People_Milking_Shift))
+
+#employee training
+table(surveysA$Employee_Training)
+sum(is.na(surveysA$Employee_Training))
+
+#part time employees
+table(surveysA$Parttime_Milking)
+sum(is.na(surveysA$Parttime_Milking))
+
+#Retraining y/n
+table(surveysA$Retraining)
+sum(is.na(surveysA$Retraining))
+
+#Retraining type
+table(surveysA$Retraining_Type)
+sum(is.na(surveysA$Retraining_Type))
+
+#Retraining frequency
+table(surveysA$Retraining_Frequency)
+sum(is.na(surveysA$Retraining_Frequency))
+
+#SOP access
+table(surveysA$SOP_Access)
+sum(is.na(surveysA$SOP_Access))
+
+#Glove Use
+table(surveysA$Glove_Use)
+sum(is.na(surveysA$Glove_Use))
+
+#are gloves changed
+table(surveysA$Glove_Changing)
+sum(is.na(surveysA$Glove_Changing))
+
+
+table(surveysA$Predip_Use)
+sum(is.na(surveysA$Predip_Use))
+
+table(surveysA$Predip_Type)
+sum(is.na(surveysA$Predip_Type))
+
+table(surveysA$Postdip_Type)
+sum(is.na(surveysA$Postdip_Type))
+
+table(surveysA$Udder_Stimulation)
+sum(is.na(surveysA$Udder_Stimulation))
+
+
+table(surveysA$Udder_Clipped_Flamed)
+sum(is.na(surveysA$Udder_Clipped_Flamed))
+
+#revist
+table(surveysA$Udder_Clipped_Flamed_frequency)
+sum(is.na(surveysA$Udder_Clipped_Flamed_frequency))
+
+table(surveysA$Udder_Clipped_Flamed_Time_3)
+sum(is.na(surveysA$Udder_Clipped_Flamed_Time_3))
+
+table(surveysA$Parlor_Type)
+sum(is.na(surveysA$Parlor_Type))
+
+table(surveysA$Cows_Present_While_Clean_Milking)
+sum(is.na(surveysA$Cows_Present_While_Clean_Milking))
+
+table(surveysA$Cow_Holding_Area)
+sum(is.na(surveysA$Cow_Holding_Area))
+
+table(surveysA$Cows_Present_While_Clean_Holding)
+sum(is.na(surveysA$Cows_Present_While_Clean_Holding))
+
+table(surveysA$Teat_Scoring)
+sum(is.na(surveysA$Teat_Scoring))
+
+table(surveysA$Udder_Hygeine_Scoring)
+sum(is.na(surveysA$Udder_Hygeine_Scoring))
+
+table(surveysA$Cow_Per_Towel)
+sum(is.na(surveysA$Cow_Per_Towel))
+
+
+table(surveysA$Mastitic_Milking)
+sum(is.na(surveysA$Mastitic_Milking))
+
+table(surveysA$Towel_Type)
+sum(is.na(surveysA$Towel_Type))
+
+table(surveysA$Detergent_Towel)
+sum(is.na(surveysA$Detergent_Towel))
+
+table(surveysA$Bleach_Chlorine_Towel)
+sum(is.na(surveysA$Bleach_Chlorine_Towel))
+
+table(surveysA$Machine_Dry_Towel)
+sum(is.na(surveysA$Machine_Dry_Towel))
+
+table(surveysA$Towel_Replacement)
+sum(is.na(surveysA$Towel_Replacement))
+
+table(surveysA$Towel_Replacement)
+sum(is.na(surveysA$Towel_Replacement))
+
+table(surveysA$Pounds_Vacuum)
+sum(is.na(surveysA$Pounds_Vacuum))
+#pounds vacuum
+breaks_vacuum <- c(-Inf, 11, 12, 13, 14, 15, 16, 17, Inf)
+labels_vacuum <- c('<11', '11-11.9', '12-12.9' , '13-13.9', '14-14.9', '15-15.9', '16-16.9', '17-17.9')
+surveysA$Pounds_Vacuum<- cut(surveysA$Pounds_Vacuum, breaks = breaks_vacuum, labels = labels_vacuum, right = FALSE)
+  
+summary_table_vacuum  <- as.data.frame(table(surveysA$Pounds_Vacuum))
+ names(summary_table_vacuum) <- c("Group", "Number_of_Farms")
+ 
+print(summary_table_vacuum)
+
+table(surveysA$Milking_Liner_Check)
+sum(is.na(surveysA$Milking_Liner_Check))
+
+table(surveysA$Pulsation_Milking_Unit)
+sum(is.na(surveysA$Pulsation_Milking_Unit))
+
+table(surveysA$System_Sanitize_Frequency)
+sum(is.na(surveysA$System_Sanitize_Frequency))
+
+table(surveysA$Water_Temperature)
+sum(is.na(surveysA$Water_Temperature))
+
+table(surveysA$Water_Softner)
+sum(is.na(surveysA$Water_Softner))
+
+table(surveysA$Water_Purification)
+sum(is.na(surveysA$Water_Purification))
+
+table(surveysA$Water_Purification_Chemical)
+sum(is.na(surveysA$Water_Purification_Chemical))
+
+table(surveysA$Water_Purification_Physical)
+sum(is.na(surveysA$Water_Purification_Physical))
+
+table(surveysA$Water_Purification_UV)
+sum(is.na(surveysA$Water_Purification_UV))
+
+table(surveysA$Plate_Cooler)
+sum(is.na(surveysA$Plate_Cooler))
+
+table(surveysA$Sprinkler)
+sum(is.na(surveysA$Sprinkler))
+
+table(surveysA$Sprinkler_3_days)
+sum(is.na(surveysA$Sprinkler_3_days))
+
+table(surveysA$Performance_Bonus)
+sum(is.na(surveysA$Performance_Bonus))
+
+table(surveysA$Feed_Additives)
+sum(is.na(surveysA$Feed_Additives))
+
+table(surveysA$Pasture)
+sum(is.na(surveysA$Pasture))
+
+table(surveysA$Pasture_Time)
+sum(is.na(surveysA$Pasture_Time))
+
+table(surveysA$Water_Sources_Ground)
+sum(is.na(surveysA$Water_Sources_Ground))
+
+table(surveysA$Water_Sources_Municipal)
+sum(is.na(surveysA$Water_Sources_Municipal))
+
+table(surveysA$Chiller)
+sum(is.na(surveysA$Chiller))
+
+table(surveysA$Udder_Clipped_Flamed_Consistency)
+sum(is.na(surveysA$Udder_Clipped_Flamed_Consistency))
+
+table(surveysA$Retraining_Consistency)
+sum(is.na(surveysA$Retraining_Consistency))
+
+table(surveysA$Pounds_Vacuum_Known)
+sum(is.na(surveysA$Pounds_Vacuum_Known))
+
+table(surveysA$Water_Temperature_Known)
+sum(is.na(surveysA$Water_Temperature_Known))
+
+table(surveysA$Employee_Timing_Assessment)
+sum(is.na(surveysA$Employee_Timing_Assessment))
+
+table(surveysA$Cow_Holding_Area)
+sum(is.na(surveysA$Cow_Holding_Area))
+```
+
+```{r}
+#used to figure out number of sampples below SCC cutoff, technically should have used final test results unedited but it would be the same number
+breaks <- c(-Inf, 750001, Inf)
+labels <- c('less than 750,000','750,000 or more' )
+Final_Data$scc <- cut(Final_Data$scc , breaks = breaks, labels = labels, right = FALSE)
+  
+ summary_table  <- as.data.frame(table(Final_Data$scc))
+ names(summary_table) <- c("Group", "Number_of_Farms")
+
+print(summary_table)
+```
+
+```{r}
+#used to figure out number of samples below TBC/APC cut off of 100,000 (aka 5 log)
+
+Final_Test_Results_Unedited <- read_excel("finalmilkresultsunedited.xlsx", 
+    na = "#NUM!")%>%
+  separate_wider_delim(SampleID, names=c("FarmID","Sampling"),delim="-")%>%
+  mutate(FarmID = as.numeric(sub("R","",FarmID)))
+breaks <- c(-Inf, 100001, Inf)
+labels <- c('less than 100,00','100,000 or more' )
+Final_Test_Results_Unedited$apc <- cut(Final_Test_Results_Unedited$apc , breaks = breaks, labels = labels, right = FALSE)
+  
+ summary_table  <- as.data.frame(table(Final_Test_Results_Unedited$apc))
+ names(summary_table) <- c("Group", "Number_of_Farms")
+
+print(summary_table)
+```
+
+```{r}
+#used to figure out number of samples below TBC/APC cut off of 5,000 (aka 3.70 log) which is considered excellent raw milk
+
+Final_Test_Results_Unedited <- read_excel("finalmilkresultsunedited.xlsx", 
+    na = "#NUM!")%>%
+  separate_wider_delim(SampleID, names=c("FarmID","Sampling"),delim="-")%>%
+  mutate(FarmID = as.numeric(sub("R","",FarmID)))
+breaks <- c(-Inf, 5001, Inf)
+labels <- c('less than 5,000','5,000 or more' )
+Final_Test_Results_Unedited$apc <- cut(Final_Test_Results_Unedited$apc , breaks = breaks, labels = labels, right = FALSE)
+  
+ summary_table  <- as.data.frame(table(Final_Test_Results_Unedited$apc))
+ names(summary_table) <- c("Group", "Number_of_Farms")
+
+print(summary_table)
+```
+
+```{r}
+#used to figure out number of samples below TBC/APC cut off of 10,000 (aka 4 log) which is considered good quality raw milk
+
+Final_Test_Results_Unedited <- read_excel("finalmilkresultsunedited.xlsx", 
+    na = "#NUM!")%>%
+  separate_wider_delim(SampleID, names=c("FarmID","Sampling"),delim="-")%>%
+  mutate(FarmID = as.numeric(sub("R","",FarmID)))
+breaks <- c(-Inf, 10001, Inf)
+labels <- c('less than 10,000','10,000 or more' )
+Final_Test_Results_Unedited$apc <- cut(Final_Test_Results_Unedited$apc , breaks = breaks, labels = labels, right = FALSE)
+  
+ summary_table  <- as.data.frame(table(Final_Test_Results_Unedited$apc))
+ names(summary_table) <- c("Group", "Number_of_Farms")
+
+print(summary_table)
+```
+
+
+```{r}
+#used to figure out number of samples below SCC cut off of 100,000 (aka 5 log)
+
+Final_Test_Results_Unedited <- read_excel("finalmilkresultsunedited.xlsx", 
+    na = "#NUM!")%>%
+  separate_wider_delim(SampleID, names=c("FarmID","Sampling"),delim="-")%>%
+  mutate(FarmID = as.numeric(sub("R","",FarmID)))
+breaks <- c(-Inf, 100001, Inf)
+labels <- c('less than 100,00','100,000 or more' )
+Final_Test_Results_Unedited$scc <- cut(Final_Test_Results_Unedited$scc , breaks = breaks, labels = labels, right = FALSE)
+  
+ summary_table  <- as.data.frame(table(Final_Test_Results_Unedited$scc))
+ names(summary_table) <- c("Group", "Number_of_Farms")
+
+print(summary_table)
+```
+
+```{r}
+#used to figure out number of samples below SCC cut off of 200,000 (aka 5.3 log) which is considered good
+
+Final_Test_Results_Unedited <- read_excel("finalmilkresultsunedited.xlsx", 
+    na = "#NUM!")%>%
+  separate_wider_delim(SampleID, names=c("FarmID","Sampling"),delim="-")%>%
+  mutate(FarmID = as.numeric(sub("R","",FarmID)))
+breaks <- c(-Inf, 200001, Inf)
+labels <- c('less than 200,000','200,000 or more' )
+Final_Test_Results_Unedited$scc <- cut(Final_Test_Results_Unedited$scc , breaks = breaks, labels = labels, right = FALSE)
+  
+ summary_table  <- as.data.frame(table(Final_Test_Results_Unedited$scc))
+ names(summary_table) <- c("Group", "Number_of_Farms")
+
+print(summary_table)
+```
+
+
+
+```{r}
+#stocking density
+breaks_stocking <- c(-Inf, 100, 126, 151,  Inf)
+labels_stocking <- c('<100', '100-125', '126-150', '>150')
+
+surveysA$Stocking_Density <- cut(surveysA$Stocking_Density, breaks = breaks_stocking,labels = labels_stocking, right = FALSE)
+  
+ summary_table_stocking  <- as.data.frame(table(surveysA$Stocking_Density))
+ names(summary_table) <- c("Group", "Number_of_Farms")
+
+print(summary_table_stocking)
+```
+
+```{r}
+#used to figure out number of samples below TBC/APC cut off of 1,000 (aka 3 log) which is considered exceptional quality raw milk
+
+Final_Test_Results_Unedited <- read_excel("finalmilkresultsunedited.xlsx", 
+    na = "#NUM!")%>%
+  separate_wider_delim(SampleID, names=c("FarmID","Sampling"),delim="-")%>%
+  mutate(FarmID = as.numeric(sub("R","",FarmID)))
+breaks <- c(-Inf, 1001, Inf)
+labels <- c('less than 1,000','1,000 or more' )
+Final_Test_Results_Unedited$apc <- cut(Final_Test_Results_Unedited$apc , breaks = breaks, labels = labels, right = FALSE)
+  
+ summary_table  <- as.data.frame(table(Final_Test_Results_Unedited$apc))
+ names(summary_table) <- c("Group", "Number_of_Farms")
+
+print(summary_table)
+```
+
+```{R}
+#All 100 farms SCC
+ggplot(Final_Data, aes(x = factor(FarmID), y = scc)) +
+  geom_boxplot() +
+  labs(x = "Farm ID", y = "SCC") +
+  theme(axis.text.x = element_blank())  # Hides 100 x-axis labels for readability
+
+
+```
+
+```{R}
+#All 100 farms TBC
+ggplot(Final_Data, aes(x = factor(FarmID), y = logapc)) +
+  geom_boxplot() +
+  labs(x = "Farm ID", y = "Log APC") +
+  theme(axis.text.x = element_blank())  # Hides 100 x-axis labels for readability
+
+```
+
+
+```{R}
+#All 100 farms Sensory
+ggplot(Final_Data, aes(x = factor(FarmID), y = sensory)) +
+  geom_boxplot() +
+  labs(x = "Farm ID", y = "Sensory") +
+  theme(axis.text.x = element_blank())  # Hides 100 x-axis labels for readability
+
+```
+
+```{R}
+#All 100 farms Sensory reordered by SD
+sensory_farm_sd <- Final_Data %>%
+  group_by(FarmID) %>%
+  summarise(Sensory_SD = sd(sensory, na.rm = TRUE), .groups = "drop")
+
+Final_Data <- Final_Data %>%
+  left_join(sensory_farm_sd, by = "FarmID") %>%
+  mutate(FarmID = reorder(FarmID, Sensory_SD))
+
+ggplot(Final_Data, aes(x = FarmID, y = sensory)) +
+  geom_boxplot() +
+  stat_summary(fun = sd, geom = "point", color = "red", shape = 18, size = 2) +
+  labs(x = "Farm ID", y = "Sensory organized by SD") +
+  theme(axis.text.x = element_blank()) 
+# Hides 100 x-axis labels for readability
+
+```
+
+```{R}
+#All 100 farms Sensory reordered by Mean
+sensory_farm_mean <- Final_Data %>%
+  group_by(FarmID) %>%
+  summarise(Sensory_Mean = mean(sensory, na.rm = TRUE), .groups = "drop")
+
+Final_Data <- Final_Data %>%
+  left_join(sensory_farm_mean, by = "FarmID") %>%
+  mutate(FarmID = reorder(FarmID, Sensory_Mean))
+
+ggplot(Final_Data, aes(x = FarmID, y = sensory)) +
+  geom_boxplot() +
+  stat_summary(fun = mean, geom = "point", color = "red", shape = 18, size = 2) +
+  labs(x = "Farm ID", y = "Sensory") +
+  theme(axis.text.x = element_blank()) 
+# Hides 100 x-axis labels for readability
+
+```
+
+```{R}
+#All 100 farms SCC reordered by Mean
+scc_farm_mean <- Final_Data %>%
+  group_by(FarmID) %>%
+  summarise(SCC_Mean = mean(scc, na.rm = TRUE), .groups = "drop")
+
+Final_Data <- Final_Data %>%
+  left_join(scc_farm_mean, by = "FarmID") %>%
+  mutate(FarmID = reorder(FarmID, SCC_Mean))
+
+ggplot(Final_Data, aes(x = FarmID, y = scc)) +
+  geom_boxplot() +
+  stat_summary(fun = mean, geom = "point", color = "red", shape = 18, size = 2) +
+  labs(x = "Farm ID", y = "SCC ordered by mean") +
+  theme(axis.text.x = element_blank()) 
+# Hides 100 x-axis labels for readability
+
+```
+
+```{R}
+#All 100 farms SCC reordered by SD
+sensory_farm_scc <- Final_Data %>%
+  group_by(FarmID) %>%
+  summarise(SCC_SD = sd(scc, na.rm = TRUE), .groups = "drop")
+
+Final_Data <- Final_Data %>%
+  left_join(sensory_farm_scc, by = "FarmID") %>%
+  mutate(FarmID = reorder(FarmID, SCC_SD))
+
+ggplot(Final_Data, aes(x = FarmID, y = scc)) +
+  geom_boxplot() +
+  stat_summary(fun = sd, geom = "point", color = "red", shape = 18, size = 2) +
+  labs(x = "Farm ID", y = "SCC organized by SD") +
+  theme(axis.text.x = element_blank()) 
+# Hides 100 x-axis labels for readability
+```
+
+```{R}
+#All 100 farms TBC reordered by Mean
+logapc_farm_mean <- Final_Data %>%
+  group_by(FarmID) %>%
+  summarise(logapc_Mean = mean(logapc, na.rm = TRUE), .groups = "drop")
+
+Final_Data <- Final_Data %>%
+  left_join(logapc_farm_mean, by = "FarmID") %>%
+  mutate(FarmID = reorder(FarmID, logapc_Mean))
+
+ggplot(Final_Data, aes(x = FarmID, y = logapc)) +
+  geom_boxplot() +
+  stat_summary(fun = mean, geom = "point", color = "red", shape = 18, size = 2) +
+  labs(x = "Farm ID", y = "Log TBC ordered by mean") +
+  theme(axis.text.x = element_blank()) 
+# Hides 100 x-axis labels for readability
+
+```
+
+```{R}
+#All 100 farms APC reordered by SD
+sensory_farm_logapc <- Final_Data %>%
+  group_by(FarmID) %>%
+  summarise(logapc_SD = sd(logapc, na.rm = TRUE), .groups = "drop")
+
+Final_Data <- Final_Data %>%
+  left_join(sensory_farm_logapc, by = "FarmID") %>%
+  mutate(FarmID = reorder(FarmID, logapc_SD))
+
+ggplot(Final_Data, aes(x = FarmID, y = logapc)) +
+  geom_boxplot() +
+  stat_summary(fun = sd, geom = "point", color = "red", shape = 18, size = 2) +
+  labs(x = "Farm ID", y = "Log TBC organized by SD") +
+  theme(axis.text.x = element_blank()) 
+# Hides 100 x-axis labels for readability
+```
